@@ -15,15 +15,15 @@ def query(query_string,use_legacy=True):
         data.append(row)
     return data
 def get_page_dict():
-    query_string = """SELECT c.user_id as user_id,c.page_url as page_url,p.category as category  FROM [datacafethailand:social_insight.customer_connection_profile] c 
-        inner join [datacafethailand:a19.page_info] p on c.page_url = p.page_url"""
+    query_string = """SELECT user_id, page_url,category,name  FROM [datacafethailand:a19.page_info_new]"""
     data = query(query_string)
     page_dict={}
     for row in data:
         page_id = row[0]
         page_url = row[1]
         category = row[2]
-        page_dict[page_id]={'page_id':page_id,'page_url':page_url,'category':category,'score':[]}
+        name = row[3]
+        page_dict[page_id]={'page_id':page_id,'page_url':page_url,'category':category,'score':[],'name':name}
     return page_dict
 def get_pages_interacted_with_users(page_id,page_dict):
     query_string = """select page_id,count(*) as count from  
@@ -87,12 +87,10 @@ if __name__=="__main__":
     if call_big_query:
         page_dict = get_page_dict()
         all_page_list = sorted(list(page_dict.keys()))
-        page_list = ['178373518915','294470807275088','139571912754174','288164804528449','103932529657678','121836167833032','134501584479']
-        page_list = ['288164804528449','103932529657678','121836167833032','134501584479']
-        page_list =['637321946425100']
-        page_score = {}
+        page_list = all_page_list
         print(len(page_list))
-        for i in range(len(page_list)):
+        start_i =0
+        for i in range(start_i,len(page_list)):
             
             page_id1 = page_list[i]
             if page_id1=='':
@@ -110,7 +108,8 @@ if __name__=="__main__":
                 #page_score_tuple1 = (jaccard_sim,page_url1,category1,intersect,union)
                 page_url2 = page_dict[page_id2]['page_url']
                 category2 =  page_dict[page_id2]['category']
-                page_score_tuple2 = (jaccard_sim,page_url2,category2,intersect,union)
+                name2 =  page_dict[page_id2]['name']
+                page_score_tuple2 = (jaccard_sim,page_url2,name2,category2,intersect,union)
                 page_dict[page_id1]['score'].append(page_score_tuple2)
             page_dict[page_id1]['score'] = sorted(page_dict[page_id1]['score'])
             mongo.insert_one('page_score',page_dict[page_id1])
