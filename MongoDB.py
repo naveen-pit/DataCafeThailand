@@ -10,6 +10,13 @@ class MongoDBManager:
     def insert_many(self,collection,data):
         collection = self.db[collection]
         collection.insert_many(data)
+    def get_all_from_collection(self,collection):
+        collection = self.db[collection]
+        data=[]
+        results= collection.find({})
+        for result in results:
+            data.append(result)
+        return data
 if __name__=="__main__":
     mongo = MongoDBManager('PageCollab')
     mongo.insert_one('test',{'test':1})
