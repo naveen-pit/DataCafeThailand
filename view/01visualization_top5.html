@@ -13,37 +13,50 @@
 }*/
 
 </style>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/css/bootstrap-select.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.min.js"></script>
+<div id ="menu">
 <h1>Network</h1>
-<select id="dataset">
+  
+<select id="dataset" class="selectpicker">
     <option disabled selected value> -- select dataset -- </option>
     <option value="datatop5 cat12345.json">top5_all</option>
     <option value="datatop5 cat13.json">top5 brands-artists</option>
     <option value="datatop5 cat3.json">top5 artists</option>
     <option value="data_0.json">all</option>
     <option value="data_1.json">1perent</option>
-
 </select>
 <form id="radioNameEncoding">
     <br>
     node size encoding
-    <input type="radio" name="nodeEncoding" id="radioNone" value="none" checked="checked">None
-    <input type="radio" name="nodeEncoding" id="radioDegree" value="degree" >Degree
-    <input type="radio" name="nodeEncoding" id="radioBetweenness" value="betweenness">Betweenness
-    <input type="radio" name="nodeEncoding" id="radioCloseness" value="closeness">Closeness
-    <input type="radio" name="nodeEncoding" id="radioEigenvector" value="eigenvector">Eigenvector
+    <label class="radio-inline"></label><input type="radio" name="nodeEncoding" id="radioNone" value="none" checked="checked">None</label>
+    <label class="radio-inline"></label><input type="radio" name="nodeEncoding" id="radioDegree" value="degree" >Degree</label>
+    <label class="radio-inline"></label><input type="radio" name="nodeEncoding" id="radioBetweenness" value="betweenness">Betweenness</label>
+    <label class="radio-inline"></label><input type="radio" name="nodeEncoding" id="radioCloseness" value="closeness">Closeness</label>
+    <label class="radio-inline"></label><input type="radio" name="nodeEncoding" id="radioEigenvector" value="eigenvector">Eigenvector</label>
 </form>
 <form id="radioColorEncoding">
     <br>
     Color encoding
-    <input type="radio" name="nodeColorEncoding" id="radioPartition" value="partition" checked="checked">partition
-    <input type="radio" name="nodeColorEncoding" id="radioCategory" value="group" >category
+    <label class="radio-inline"><input type="radio" name="nodeColorEncoding" id="radioPartition" value="partition" checked="checked">partition</label>
+    <label class="radio-inline"><input type="radio" name="nodeColorEncoding" id="radioCategory" value="group" >category</label>
 </form>
-<svg width="1280" height="800" id="svg"></svg>
+<select class="selectpicker" data-live-search="true" id="nodeSelector"  title="-- select page --">
+</select>
+</div>
+
+<div id="networkStructure">
+<svg width="640" height="800" id="svg"></svg>
+</div>
+<div id="nodeList">
+
+</div>
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script>
-// var file_list =["data_0.json","data_1.json","datatop5.json"]
-// var filePath = file_list[2]
-factor =100
+var factor =100
 var RADIUS =6.5
 
 var svg = d3.select("svg"),
@@ -57,9 +70,9 @@ var nodeIdClicked;
 var pageScore;
 var simulation;
 var category = ['brand','media','artist'];
-d3.select('#dataset')
+$('#dataset')
     .on("change", function () {
-        var dataset = document.getElementById("dataset");
+        var dataset = document.getElementById("dataset")
         var filePath = dataset.options[dataset.selectedIndex].value;
         document.getElementById("radioNone").checked = true;
         document.getElementById("radioPartition").checked = true;
@@ -68,12 +81,17 @@ d3.select('#dataset')
         nodeIdClicked="";
         loadDataSet(filePath)
     });
-d3.selectAll("input[name='nodeColorEncoding']").on("change", function(){
+    $("input[name='nodeColorEncoding']").on("change", function(){
     colorEncoding = this.value;
     highlightNode(nodeIdClicked);
 });
-        
-d3.selectAll("input[name='nodeEncoding']").on("change", function(){
+$('#nodeSelector')
+    .on("change", function () {
+        isNodeClicked=true;
+        var nodeSelector = document.getElementById("nodeSelector")
+        highlightNode(nodeSelector.options[nodeSelector.selectedIndex].value);
+    });        
+$("input[name='nodeEncoding']").on("change", function(){
     var attribute = this.value;
     var nodes = d3.selectAll("circle")
     .transition()
@@ -122,68 +140,77 @@ function loadDataSet(filePath){
         return RADIUS+ 0.5;
     }).iterations(5))
     d3.json(filePath, function(error, graph) {
-    if (error) throw error;
-    pageScore = graph['page_score']
-    var link = svg.append("g")
-        .attr("class", "links")
-        .selectAll("line")
-        .data(graph.links)
-        .enter().append("line")
-        .attr("stroke-width", function(d) { return Math.sqrt(d.value); });
+        if (error) throw error;
+        pageScore = graph['page_score']
+        //generate option for nodeSelector
+        for(var i=0;i<graph.nodes.length;i++){
+            $('#nodeSelector').append('<option value="'+graph.nodes[i]["id"]+'">'+graph.nodes[i]["name"]+'</option>');
+        }
 
-    var node = svg.append("g")
-        .attr("class", "nodes")
-        .selectAll("circle")
-        .data(graph.nodes)
-        .enter().append("circle")
-        .attr("class",function(d){ return "nodes name"+d.name+" id"+d.id})
-        .attr("r", function(d) { return RADIUS; })
-        .attr("fill", function(d) {
-            // switch (d.group){
-            //     case 1: return "#1f77b4";
-            //     case 2: return "#ff7f0e"
-            //     case 3: return "#2ca02c"
-            //     default: return "#ff7f0e"
-            // }
-            return color(d[colorEncoding]);
-            })
-        .call(d3.drag()
-            .on("start", dragstarted)
-            .on("drag", dragged)
-            .on("end", dragended))
-        .on("click",function(d){
-            isNodeClicked = !isNodeClicked;
-            highlightNode(d["id"])
-        });;
+        $('#nodeSelector').selectpicker("refresh");
+        $('#nodeSelector').selectpicker('val', null);
+        var link = svg.append("g")
+            .attr("class", "links")
+            .selectAll("line")
+            .data(graph.links)
+            .enter().append("line")
+            .attr("stroke-width", function(d) { return Math.sqrt(d.value); });
+        
+        var node = svg.append("g")
+            .attr("class", "nodes")
+            .selectAll("circle")
+            .data(graph.nodes)
+            .enter().append("circle")
+            .attr("class",function(d){ return "nodes name"+d.name+" id"+d.id})
+            .attr("r", function(d) { return RADIUS; })
+            .attr("fill", function(d) {
+                // switch (d.group){
+                //     case 1: return "#1f77b4";
+                //     case 2: return "#ff7f0e"
+                //     case 3: return "#2ca02c"
+                //     default: return "#ff7f0e"
+                // }
+                return color(d[colorEncoding]);
+                })
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended))
+            .on("click",function(d){
+                isNodeClicked = !isNodeClicked;
+                highlightNode(d["id"])
+            });;
 
-    node.append("title")
-        .text(function(d) { return d.name});
+        node.append("title")
+            .text(function(d) { return d.name});
 
-    simulation
-        .nodes(graph.nodes)
-        .on("tick", ticked);
+        simulation
+            .nodes(graph.nodes)
+            .on("tick", ticked);
 
-    simulation.force("link")
-        .links(graph.links);
+        simulation.force("link")
+            .links(graph.links);
 
-    function ticked() {
-        link
-            .attr("x1", function(d) { return d.source.x; })
-            .attr("y1", function(d) { return d.source.y; })
-            .attr("x2", function(d) { return d.target.x; })
-            .attr("y2", function(d) { return d.target.y; });
+        function ticked() {
+            link
+                .attr("x1", function(d) { return d.source.x; })
+                .attr("y1", function(d) { return d.source.y; })
+                .attr("x2", function(d) { return d.target.x; })
+                .attr("y2", function(d) { return d.target.y; });
 
-        node
-            .attr("cx", function(d) { return d.x; })
-            .attr("cy", function(d) { return d.y; });
-    }
+            node
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; });
+        }
     });
 }
 function highlightNode(pageID){
     if(isNodeClicked){
         nodeIdClicked = pageID;
         d3.selectAll("circle")
-        .attr("fill", "#e6f2ff");
+        .attr("fill", "#e6f2ff")
+        .attr("stroke", null)
+        .attr("stroke-width", null);
         d3.select("circle.id"+pageID)
         .attr("fill", function(d){
             return color(d[colorEncoding]);
