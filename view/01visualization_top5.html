@@ -7,25 +7,36 @@
   stroke-opacity: 0.6;
 }
 
-.nodes circle {
+/*.nodes circle {
   stroke: #fff;
   stroke-width: 1.5px;
-}
+}*/
 
 </style>
 <h1>Network</h1>
 <select id="dataset">
     <option disabled selected value> -- select dataset -- </option>
-    <option value="datatop5.json">top5</option>
+    <option value="datatop5 cat12345.json">top5_all</option>
+    <option value="datatop5 cat13.json">top5 brands-artists</option>
+    <option value="datatop5 cat3.json">top5 artists</option>
     <option value="data_0.json">all</option>
     <option value="data_1.json">1perent</option>
+
 </select>
 <form id="radioNameEncoding">
-    <input type="radio" name="nodeEncoding" value="none" checked="checked">None
-    <input type="radio" name="nodeEncoding" value="degree" >Degree
-    <input type="radio" name="nodeEncoding" value="betweenness">Betweenness
-    <input type="radio" name="nodeEncoding" value="closeness">Closeness
-    <input type="radio" name="nodeEncoding" value="eigenvector">Eigenvector
+    <br>
+    node size encoding
+    <input type="radio" name="nodeEncoding" id="radioNone" value="none" checked="checked">None
+    <input type="radio" name="nodeEncoding" id="radioDegree" value="degree" >Degree
+    <input type="radio" name="nodeEncoding" id="radioBetweenness" value="betweenness">Betweenness
+    <input type="radio" name="nodeEncoding" id="radioCloseness" value="closeness">Closeness
+    <input type="radio" name="nodeEncoding" id="radioEigenvector" value="eigenvector">Eigenvector
+</form>
+<form id="radioColorEncoding">
+    <br>
+    Color encoding
+    <input type="radio" name="nodeColorEncoding" id="radioPartition" value="partition" checked="checked">partition
+    <input type="radio" name="nodeColorEncoding" id="radioCategory" value="group" >category
 </form>
 <svg width="1280" height="800" id="svg"></svg>
 <script src="https://d3js.org/d3.v4.min.js"></script>
@@ -33,41 +44,69 @@
 // var file_list =["data_0.json","data_1.json","datatop5.json"]
 // var filePath = file_list[2]
 factor =100
+var RADIUS =6.5
+
 var svg = d3.select("svg"),
     width = +svg.attr("width"),
     height = +svg.attr("height");
 
-var color = d3.scaleOrdinal(d3.schemeCategory20);
-var node;
+var color = d3.scaleOrdinal(d3.schemeCategory10);
+var colorEncoding="partition"
+var isNodeClicked=false;
+var nodeIdClicked;
+var pageScore;
 var simulation;
+var category = ['brand','media','artist'];
 d3.select('#dataset')
     .on("change", function () {
         var dataset = document.getElementById("dataset");
         var filePath = dataset.options[dataset.selectedIndex].value;
-        console.log(filePath)
+        document.getElementById("radioNone").checked = true;
+        document.getElementById("radioPartition").checked = true;
+        colorEncoding="partition"
+        isNodeClicked=false;
+        nodeIdClicked="";
         loadDataSet(filePath)
     });
+d3.selectAll("input[name='nodeColorEncoding']").on("change", function(){
+    colorEncoding = this.value;
+    highlightNode(nodeIdClicked);
+});
+        
 d3.selectAll("input[name='nodeEncoding']").on("change", function(){
     var attribute = this.value;
-    d3.selectAll("circle")
+    var nodes = d3.selectAll("circle")
     .transition()
     .delay(0)
     .duration(200)
-    .attr("r", function(d) { 
+    .attr("r", function(d) {
         if(attribute=="none"){
-            return 5;
+            return RADIUS;
         }
-        return 5+ (factor*d[attribute]);  });
+        return RADIUS+ (factor*d[attribute]);  });
+
+    nodes.each(function(d,i){
+        d3.select(this).select("title")
+        .text(function(d) {
+            if(attribute=="none"){
+                return d.name;
+            }
+            return d.name+ ' '+attribute+'='+d[attribute];
+        });
+    })
+    
+
     simulation
     .force("collide", d3.forceCollide().radius(function(d)
     {
         if(attribute=="none"){
-            return 5+0.5;
+            return RADIUS+0.5;
         }
-        return 5+ (factor*d[attribute]) + 0.5;
+        return RADIUS+ (factor*d[attribute]) + 0.5;
     }).iterations(5))
-    
-    
+    simulation.alphaTarget(0.3).restart();
+
+
 });
 function loadDataSet(filePath){
     var svgNode = document.getElementById("svg");
@@ -80,41 +119,45 @@ function loadDataSet(filePath){
     .force("center", d3.forceCenter(width / 2, height / 2))
     .force("collide", d3.forceCollide().radius(function(d)
     {
-        return 5+ (factor*d.betweenness) + 0.5;
+        return RADIUS+ 0.5;
     }).iterations(5))
     d3.json(filePath, function(error, graph) {
     if (error) throw error;
-        
+    pageScore = graph['page_score']
     var link = svg.append("g")
         .attr("class", "links")
         .selectAll("line")
         .data(graph.links)
         .enter().append("line")
         .attr("stroke-width", function(d) { return Math.sqrt(d.value); });
-        
+
     var node = svg.append("g")
         .attr("class", "nodes")
         .selectAll("circle")
         .data(graph.nodes)
         .enter().append("circle")
-        .attr("class",function(d){ return "nodes "+d.name+" "+d.id})
-        .attr("r", function(d) { return 5; })
-        .attr("fill", function(d) { 
+        .attr("class",function(d){ return "nodes name"+d.name+" id"+d.id})
+        .attr("r", function(d) { return RADIUS; })
+        .attr("fill", function(d) {
             // switch (d.group){
             //     case 1: return "#1f77b4";
             //     case 2: return "#ff7f0e"
             //     case 3: return "#2ca02c"
             //     default: return "#ff7f0e"
             // }
-            return color(d.partition); 
+            return color(d[colorEncoding]);
             })
         .call(d3.drag()
             .on("start", dragstarted)
             .on("drag", dragged)
-            .on("end", dragended));
+            .on("end", dragended))
+        .on("click",function(d){
+            isNodeClicked = !isNodeClicked;
+            highlightNode(d["id"])
+        });;
 
     node.append("title")
-        .text(function(d) { return d.name+ ' betweenness='+d.betweenness; });
+        .text(function(d) { return d.name});
 
     simulation
         .nodes(graph.nodes)
@@ -135,6 +178,38 @@ function loadDataSet(filePath){
             .attr("cy", function(d) { return d.y; });
     }
     });
+}
+function highlightNode(pageID){
+    if(isNodeClicked){
+        nodeIdClicked = pageID;
+        d3.selectAll("circle")
+        .attr("fill", "#e6f2ff");
+        d3.select("circle.id"+pageID)
+        .attr("fill", function(d){
+            return color(d[colorEncoding]);
+        })
+        .attr("stroke", "black")
+        .attr("stroke-width", "3")
+        for(var i=0;i<category.length;i++){
+            cat = pageScore[pageID][category[i]];
+            for (var j=0;j<cat.length;j++){
+                var connectedPageID = cat[j][1];
+                d3.select("circle.id"+connectedPageID)
+                .attr("fill", function(d){
+                    return color(d[colorEncoding]);
+                });
+            }
+        }        
+    }
+    else{
+        nodeIdClicked="";
+        d3.selectAll("circle")
+        .attr("fill", function(d){
+            return color(d[colorEncoding]);
+        })
+        .attr("stroke", null)
+        .attr("stroke-width", null);
+    }
 }
 function dragstarted(d) {
   if (!d3.event.active) simulation.alphaTarget(0.3).restart();

@@ -7,6 +7,7 @@ import networkx as nx
 client = bigquery.Client()
 import community
 THRESHOLD =1
+CATEGORY=[3]
 def query(query_string,use_legacy=True):
     query_job = client.run_async_query(str(uuid.uuid4()), query_string)
     query_job.use_legacy_sql = use_legacy
@@ -182,7 +183,7 @@ def generate_networkx(page_dict,all_page_pairwise_list):
         union =edge['union']
         jaccard_sim = 100.0*intersect/union
         if(jaccard_sim>THRESHOLD):
-            g.add_edge(edge['pageid1'],edge['pageid2'],weight=[jaccard_sim])
+            g.add_edge(edge['pageid1'],edge['pageid2'],weight=jaccard_sim)
     return g
 def generate_nodes_list(page_dict,betweenness,closeness,eigenvector,degree):
     node_list=[]
@@ -281,7 +282,8 @@ def generate_data_of_top(page_score):
                         'target':pageid2,
                         'value':score
                     }
-                    edge_list.append(link)
+                    if len(page_score[pageid1]['score'])>0 and page_score[pageid1]['category'] in CATEGORY and page_score[pageid2]['category'] in CATEGORY:
+                        edge_list.append(link)
                     if (pageid1 not in node_exist):
                         node_exist[pageid1]={}
                     if (pageid2 not in node_exist):
@@ -289,36 +291,43 @@ def generate_data_of_top(page_score):
                     node_exist[pageid1][pageid2]=True
                     node_exist[pageid2][pageid1]=True
     g= nx.Graph()
-    graph_no_weight=nx.Graph()
     for page_id in page_score:
-        if len(page_score[page_id]['score'])>0:
+        if len(page_score[page_id]['score'])>0 and page_score[page_id]['category'] in CATEGORY:
             g.add_node(page_id)
-            graph_no_weight.add_node(page_id)
     for edge in edge_list:
-        if len(page_score[edge['source']]['score'])>0:
-            g.add_edge(edge['source'],edge['target'],weight=[edge['value']])
-            graph_no_weight.add_edge(edge['source'],edge['target'])
-    partition = community.best_partition(graph_no_weight)
+        if len(page_score[edge['source']]['score'])>0 and page_score[edge['source']]['category'] in CATEGORY and page_score[edge['target']]['category'] in CATEGORY:
+            g.add_edge(edge['source'],edge['target'],weight=edge['value'])
+    partition = community.best_partition(g)
     degree = nx.degree_centrality(g)
     betweenness = nx.betweenness_centrality(g)
     closeness = nx.closeness_centrality(g)
     eigenvector = nx.eigenvector_centrality(g)
+    page_score_data={}
     for page_id in page_score:
-        if len(page_score[page_id]['score'])>0:
+        if len(page_score[page_id]['score'])>0 and page_score[page_id]['category'] in CATEGORY:
+            catetory_id = page_score[page_id]['category']
+            if catetory_id==2 or catetory_id==4 or catetory_id==5:
+                catetory_id=2
             node = {
                 'id':page_id,
-                'group':page_score[page_id]['category'],
+                'group':catetory_id,
                 'partition':partition[page_id],
                 'name':page_score[page_id]['name'],
                 'betweenness':betweenness[page_id],
                 'closeness':closeness[page_id],
                 'eigenvector':eigenvector[page_id],
-                'degree':eigenvector[page_id]
+                'degree':degree[page_id]
             }
             node_list.append(node)
+            page_score_data[page_id]={
+                'brand':page_score[page_id]['brand'],
+                'media':page_score[page_id]['media'],
+                'artist':page_score[page_id]['artist']
+            }
     data={
         'nodes':node_list,
-        'links':edge_list
+        'links':edge_list,
+        'page_score':page_score_data
     }
     return data
 def main_generate_network_of_top():
@@ -329,7 +338,8 @@ def main_generate_network_of_top():
     all_page_pairwise_list = mongo.get_all_from_collection('all_page_pairwise')
     page_score = extract_top_from_each_category(page_score_list)
     data = generate_data_of_top(page_score)
-    write_json('./view/datatop5.json',data)
+    file_name = './view/datatop5 cat'+str(CATEGORY).replace('\'','').replace('[','').replace(']','').replace(', ','')+'.json'
+    write_json(file_name,data)
 if __name__=="__main__":
     print('begin')
     main_generate_network_of_top()
