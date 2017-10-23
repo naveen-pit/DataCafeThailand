@@ -69,76 +69,7 @@ def get_intersection_union(page_id_string):
         pairwise={'pageid1':page_id1,'pageid2':page_id2,'intersect':intersect,'union':union}
         all_page_pairwise_list.append(pairwise)
     return all_page_pairwise_list
-def get_num_intersect_unique_users(page_id1,page_id2):
-    query_string = """select count(*) from (
-        SELECT t1.user_id FROM [datacafethailand:a19.page_post_user] t1
-        inner join (SELECT user_id FROM [datacafethailand:a19.page_post_user] where page_id='"""+page_id2+"""' group by user_id) t2
-        on t1.user_id = t2.user_id
-        where t1.page_id='"""+page_id1+"""' group by t1.user_id
-        )"""
-    data = query(query_string)
-    for row in data:
-        return row[0]
-def get_num_union_unique_users(page_id1,page_id2):
-    query_string = """select count(*) from (
-        (SELECT user_id FROM datacafethailand.a19.page_post_user where page_id='"""+page_id1+"""' group by user_id)
-        union distinct
-        (SELECT user_id FROM datacafethailand.a19.page_post_user where page_id='"""+page_id2+"""' group by user_id)
-        )"""
-    data = query(query_string,use_legacy=False)
-    for row in data:
-        return row[0]
-def run_generic_page_count():
-    call_big_query=True
-    if call_big_query:
-        mongo = MongoDBManager('PageCollab')
-        if get_page_dict_from_big_query: 
-            page_dict = get_page_dict()
-            mongo.insert_one(page_dict)
-        else:
-            page_dict=mongo.get_all_from_collection('page_dict')
-        for page_id in page_dict:
-            page_url = page_dict[page_id]['page_url']
-            page_score = get_pages_interacted_with_users(page_id,page_dict) #khaosod
-            page_score_tuple_list=generate_page_score_tuple(page_score)
-            page_score_tuple_list = sorted(page_score_tuple_list)
-            data = {'page_id':page_id,'page_url': page_url,'page_score':page_score_tuple_list}
-            mongo.insert_one('page_score',data)
-    else:
-        pass
-def run_jaccard_with_many_calls():
-    mongo = MongoDBManager('PageCollab')
-    call_big_query=True
-    if call_big_query:
-        page_dict = get_page_dict()
-        all_page_list = sorted(list(page_dict.keys()))
-        page_list = all_page_list
-        print(len(page_list))
-        start_i =2
-        for i in range(start_i,len(page_list)):
-            page_id1 = page_list[i]
-            if page_id1=='':
-                    continue
-            for j in range(len(all_page_list)):
-                print('i=',i)
-                print('j=',j)
-                print(str(datetime.now()))
-                page_id2 = all_page_list[j]
-                union = get_num_union_unique_users(page_id1,page_id2)
-                intersect = get_num_intersect_unique_users(page_id1,page_id2)
-                jaccard_sim = 1.0*intersect/union
-                page_url1 = page_dict[page_id1]['page_url']
-                category1 =  page_dict[page_id1]['category']
-                page_url2 = page_dict[page_id2]['page_url']
-                category2 =  page_dict[page_id2]['category']
-                name2 =  page_dict[page_id2]['name']
-                page_score_tuple2 = (jaccard_sim,page_url2,name2,category2,intersect,union)
-                page_dict[page_id1]['score'].append(page_score_tuple2)
-            page_dict[page_id1]['score'] = sorted(page_dict[page_id1]['score'])
-            mongo.insert_one('page_score',page_dict[page_id1])
-    else: 
-        pass
-def run_jaccard_single_call():
+def main_run_jaccard_single_call():
     mongo = MongoDBManager('PageCollab')
     get_page_dict_from_big_query=False
     if get_page_dict_from_big_query: 
@@ -302,7 +233,7 @@ def generate_data_of_top(page_score):
     betweenness = nx.betweenness_centrality(g)
     closeness = nx.closeness_centrality(g)
     eigenvector = nx.eigenvector_centrality(g)
-    page_score_data={}
+    page_info_data={}
     for page_id in page_score:
         if len(page_score[page_id]['score'])>0 and page_score[page_id]['category'] in CATEGORY:
             catetory_id = page_score[page_id]['category']
@@ -319,15 +250,22 @@ def generate_data_of_top(page_score):
                 'degree':degree[page_id]
             }
             node_list.append(node)
-            page_score_data[page_id]={
+            page_info_data[page_id]={
                 'brand':page_score[page_id]['brand'],
                 'media':page_score[page_id]['media'],
                 'artist':page_score[page_id]['artist']
             }
+    category_data=[]
+    for category_num in CATEGORY:
+        if category_num==4 or category_num==5:
+            category_num=2 #group cat4,5 to cat2
+        category_num = category_num-1
+        category_data.append(category_list[category_num])
     data={
         'nodes':node_list,
         'links':edge_list,
-        'page_score':page_score_data
+        'page_info':page_info_data,
+        'category':category_data
     }
     return data
 def main_generate_network_of_top():

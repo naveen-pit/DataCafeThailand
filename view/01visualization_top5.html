@@ -73,9 +73,9 @@
     var nodeIdClicked;
     var nodeList;
     var edgeList;
-    var pageScore;
+    var pageInfo;
     var simulation;
-    var category = ['brand', 'media', 'artist'];
+    var category;
     $('#dataset')
         .on("change", function () {
             var dataset = document.getElementById("dataset")
@@ -146,9 +146,10 @@
             }).iterations(5))
         d3.json(filePath, function (error, graph) {
             if (error) throw error;
-            pageScore = graph['page_score'];
+            pageInfo = graph['page_info'];
             nodeList = graph['nodes'];
             edgeList = graph['links'];
+            category = graph['category']
             //generate option for nodeSelector
             $('#nodeSelector').empty()
             for (var i = 0; i < nodeList.length; i++) {
@@ -233,7 +234,7 @@
                 .attr("stroke", "black")
                 .attr("stroke-width", "3")
             for(var i=0;i<category.length;i++){
-                cat = pageScore[pageID][category[i]];
+                cat = pageInfo[pageID][category[i]];
                 for (var j=0;j<cat.length;j++){
                     var connectedPageID = cat[j][1];
                     d3.select("circle.id"+connectedPageID)
@@ -270,7 +271,9 @@
     }
     function updateBarChart(pageID) {
         document.getElementById("barchart").innerHTML="";
-        drawBarChart(pageID);
+        if (isNodeClicked) {
+            drawBarChart(pageID);
+        }
     }
     function drawBarChart(pageID){
         var data = generateDataForBarChart(pageID);
@@ -442,7 +445,7 @@
     function generateDataForBarChart(pageID) {
         var data = []
         for (var i = 0; i < category.length; i++) {
-            var cat = pageScore[pageID][category[i]];
+            var cat = pageInfo[pageID][category[i]];
             var dataInCat = { 'key': category[i], 'values': [] };
             for (var j = 0; j < cat.length; j++) {
                 var score = cat[j][0];
