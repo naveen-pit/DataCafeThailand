@@ -67,6 +67,8 @@ var color = d3.scaleOrdinal(d3.schemeCategory10);
 var colorEncoding="partition"
 var isNodeClicked=false;
 var nodeIdClicked;
+var nodeList;
+var edgeList;
 var pageScore;
 var simulation;
 var category = ['brand','media','artist'];
@@ -141,10 +143,13 @@ function loadDataSet(filePath){
     }).iterations(5))
     d3.json(filePath, function(error, graph) {
         if (error) throw error;
-        pageScore = graph['page_score']
+        pageScore = graph['page_score'];
+        nodeList = graph['nodes'];
+        edgeList = graph['links'];
         //generate option for nodeSelector
-        for(var i=0;i<graph.nodes.length;i++){
-            $('#nodeSelector').append('<option value="'+graph.nodes[i]["id"]+'">'+graph.nodes[i]["name"]+'</option>');
+        $('#nodeSelector').empty()
+        for(var i=0;i<nodeList.length;i++){
+            $('#nodeSelector').append('<option value="'+nodeList[i]["id"]+'">'+nodeList[i]["name"]+'</option>');
         }
 
         $('#nodeSelector').selectpicker("refresh");
@@ -177,7 +182,12 @@ function loadDataSet(filePath){
                 .on("drag", dragged)
                 .on("end", dragended))
             .on("click",function(d){
-                isNodeClicked = !isNodeClicked;
+                if(d["id"]==nodeIdClicked){
+                    isNodeClicked = !isNodeClicked;
+                }
+                else{
+                    isNodeClicked = true;
+                }
                 highlightNode(d["id"])
             });;
 
@@ -217,16 +227,30 @@ function highlightNode(pageID){
         })
         .attr("stroke", "black")
         .attr("stroke-width", "3")
-        for(var i=0;i<category.length;i++){
-            cat = pageScore[pageID][category[i]];
-            for (var j=0;j<cat.length;j++){
-                var connectedPageID = cat[j][1];
-                d3.select("circle.id"+connectedPageID)
+        // for(var i=0;i<category.length;i++){
+        //     cat = pageScore[pageID][category[i]];
+        //     for (var j=0;j<cat.length;j++){
+        //         var connectedPageID = cat[j][1];
+        //         d3.select("circle.id"+connectedPageID)
+        //         .attr("fill", function(d){
+        //             return color(d[colorEncoding]);
+        //         });
+        //     }
+        // }
+        for(var i=0;i<edgeList.length;i++){
+            var connectedPageID;
+            if(edgeList[i]["source"]["id"]==pageID){
+                connectedPageID = edgeList[i]["target"]["id"];
+            }
+            else if(edgeList[i]["target"]["id"]==pageID){
+                connectedPageID = edgeList[i]["source"]["id"];
+            }
+            d3.select("circle.id"+connectedPageID)
                 .attr("fill", function(d){
                     return color(d[colorEncoding]);
                 });
-            }
-        }        
+        }      
+        $('#nodeSelector').selectpicker('val', pageID);
     }
     else{
         nodeIdClicked="";
@@ -236,6 +260,7 @@ function highlightNode(pageID){
         })
         .attr("stroke", null)
         .attr("stroke-width", null);
+        $('#nodeSelector').selectpicker('val', null);
     }
 }
 function dragstarted(d) {
