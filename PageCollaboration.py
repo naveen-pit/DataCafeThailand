@@ -7,7 +7,7 @@ import networkx as nx
 client = bigquery.Client()
 import community
 THRESHOLD =1
-CATEGORY=[3]
+CATEGORY=[1,2,3,4,5]
 def query(query_string,use_legacy=True):
     query_job = client.run_async_query(str(uuid.uuid4()), query_string)
     query_job.use_legacy_sql = use_legacy
@@ -240,17 +240,17 @@ def generate_data_of_top(page_score):
             if catetory_id==2 or catetory_id==4 or catetory_id==5:
                 catetory_id=2
             node = {
-                'id':page_id,
+                'id':page_id  
+            }
+            node_list.append(node)
+            page_info_data[page_id]={
                 'group':catetory_id,
                 'partition':partition[page_id],
                 'name':page_score[page_id]['name'],
                 'betweenness':betweenness[page_id],
                 'closeness':closeness[page_id],
                 'eigenvector':eigenvector[page_id],
-                'degree':degree[page_id]
-            }
-            node_list.append(node)
-            page_info_data[page_id]={
+                'degree':degree[page_id],
                 'brand':page_score[page_id]['brand'],
                 'media':page_score[page_id]['media'],
                 'artist':page_score[page_id]['artist']
@@ -265,7 +265,7 @@ def generate_data_of_top(page_score):
         'nodes':node_list,
         'links':edge_list,
         'page_info':page_info_data,
-        'category':category_data
+        'category':list(set(category_data))
     }
     return data
 def main_generate_network_of_top():

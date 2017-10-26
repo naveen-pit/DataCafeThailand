@@ -6,7 +6,7 @@
         stroke-opacity: 0.6;
     }
 
-    /*.nodes circle {
+/*.nodes circle {
   stroke: #fff;
   stroke-width: 1.5px;
 }*/
@@ -21,6 +21,7 @@
     <select id="dataset" class="selectpicker">
         <option disabled selected value> -- select dataset -- </option>
         <option value="datatop5 cat12345.json">top5_all</option>
+        <option value="datatop5 cat1.json">top5 brands</option>
         <option value="datatop5 cat13.json">top5 brands-artists</option>
         <option value="datatop5 cat3.json">top5 artists</option>
         <option value="data_0.json">all</option>
@@ -42,9 +43,10 @@
     <form id="radioColorEncoding">
         <br> Color encoding
         <label class="radio-inline">
-            <input type="radio" name="nodeColorEncoding" id="radioPartition" value="partition" checked="checked">partition</label>
+            <input type="radio" name="nodeColorEncoding" id="radioCategory" value="group" checked="checked">category</label>
         <label class="radio-inline">
-            <input type="radio" name="nodeColorEncoding" id="radioCategory" value="group">category</label>
+            <input type="radio" name="nodeColorEncoding" id="radioPartition" value="partition" >partition</label>
+       
     </form>
     <select class="selectpicker" data-live-search="true" id="nodeSelector" title="-- select page --">
     </select>
@@ -68,7 +70,7 @@
         height = +svg.attr("height");
 
     var color = d3.scaleOrdinal(d3.schemeCategory10);
-    var colorEncoding = "partition"
+    var colorEncoding = "category"
     var isNodeClicked = false;
     var nodeIdClicked;
     var nodeList;
@@ -81,8 +83,8 @@
             var dataset = document.getElementById("dataset")
             var filePath = dataset.options[dataset.selectedIndex].value;
             document.getElementById("radioNone").checked = true;
-            document.getElementById("radioPartition").checked = true;
-            colorEncoding = "partition"
+            document.getElementById("radioCategory").checked = true;
+            colorEncoding = "category"
             isNodeClicked = false;
             nodeIdClicked = "";
             loadDataSet(filePath)
@@ -109,16 +111,16 @@
                 if (attribute == "none") {
                     return RADIUS;
                 }
-                return RADIUS + (factor * d[attribute]);
+                return RADIUS + (factor * pageInfo[d["id"]][attribute]);
             });
 
         nodes.each(function (d, i) {
             d3.select(this).select("title")
                 .text(function (d) {
                     if (attribute == "none") {
-                        return d.name;
+                        return pageInfo[d["id"]].name;
                     }
-                    return d.name + ' ' + attribute + '=' + d[attribute];
+                    return pageInfo[d["id"]].name + ' ' + attribute + '=' + pageInfo[d["id"]][attribute];
                 });
         })
         simulation
@@ -126,7 +128,7 @@
                 if (attribute == "none") {
                     return RADIUS + 0.5;
                 }
-                return RADIUS + (factor * d[attribute]) + 0.5;
+                return RADIUS + (factor * pageInfo[d["id"]][attribute]) + 0.5;
             }).iterations(5))
         simulation.alphaTarget(0.3).restart();
 
@@ -153,7 +155,7 @@
             //generate option for nodeSelector
             $('#nodeSelector').empty()
             for (var i = 0; i < nodeList.length; i++) {
-                $('#nodeSelector').append('<option value="' + nodeList[i]["id"] + '">' + nodeList[i]["name"] + '</option>');
+                $('#nodeSelector').append('<option value="' + nodeList[i]["id"] + '">' + pageInfo[nodeList[i]["id"]]["name"] + '</option>');
             }
 
             $('#nodeSelector').selectpicker("refresh");
@@ -170,16 +172,10 @@
                 .selectAll("circle")
                 .data(graph.nodes)
                 .enter().append("circle")
-                .attr("class", function (d) { return "nodes name" + d.name + " id" + d.id })
+                .attr("class", function (d) { return "nodes name" + pageInfo[d["id"]].name + " id" + d.id })
                 .attr("r", function (d) { return RADIUS; })
                 .attr("fill", function (d) {
-                    // switch (d.group){
-                    //     case 1: return "#1f77b4";
-                    //     case 2: return "#ff7f0e"
-                    //     case 3: return "#2ca02c"
-                    //     default: return "#ff7f0e"
-                    // }
-                    return color(d[colorEncoding]);
+                    return color(pageInfo[d["id"]][colorEncoding]);
                 })
                 .call(d3.drag()
                     .on("start", dragstarted)
@@ -197,7 +193,7 @@
                 });;
 
             node.append("title")
-                .text(function (d) { return d.name });
+                .text(function (d) { return pageInfo[d["id"]].name });
 
             simulation
                 .nodes(graph.nodes)
@@ -227,9 +223,13 @@
                 .attr("stroke", null)
                 .attr("stroke-width", null)
                 .attr("stroke-dasharray",null);
+            d3.selectAll("rect")
+            .attr("fill", function (d) {
+                    return color(pageInfo[d["key"]][colorEncoding]);
+                })
             d3.select("circle.id" + pageID)
                 .attr("fill", function (d) {
-                    return color(d[colorEncoding]);
+                    return color(pageInfo[d["id"]][colorEncoding]);
                 })
                 .attr("stroke", "black")
                 .attr("stroke-width", "3")
@@ -253,7 +253,7 @@
                 }
                 d3.select("circle.id" + connectedPageID)
                     .attr("fill", function (d) {
-                        return color(d[colorEncoding]);
+                        return color(pageInfo[d["id"]][colorEncoding]);
                     });
             }
             $('#nodeSelector').selectpicker('val', pageID);
@@ -262,10 +262,14 @@
             nodeIdClicked = "";
             d3.selectAll("circle")
                 .attr("fill", function (d) {
-                    return color(d[colorEncoding]);
+                    return color(pageInfo[d["id"]][colorEncoding]);
                 })
                 .attr("stroke", null)
                 .attr("stroke-width", null);
+                d3.selectAll("rect")
+                .attr("fill", function (d) {
+                    return color(pageInfo[d["key"]][colorEncoding]);
+                })
             $('#nodeSelector').selectpicker('val', null);
         }
     }
@@ -285,11 +289,12 @@
             },
                 width = 800 - margin.left - margin.right,
                 height = 360 - margin.top - margin.bottom;
-            var color = {
-                brand: '#4A7B9D',
-                media: '#54577C',
-                artist: '#ED6A5A'
+            var bar_color = {
+                brand: color(1),
+                media: color(2),
+                artist: color(3)
             };
+            var max_bar_width=20; //TODO set limit rect width  
             var barPadding = 40;
             var rangeBands = [];
             var cummulative = 0;
@@ -321,7 +326,7 @@
             })]);
 
             var category_axis = d3.axisBottom(x_category);
-            var yAxis = d3.axisLeft(y).tickFormat(d3.format(".2s"));
+            var yAxis = d3.axisLeft(y).tickFormat(d3.format(".2%"));
             var svg = d3.select("svg#barchart")
                 .attr("width", width + margin.left + margin.right)
                 .attr("height", height + margin.top + margin.bottom)
@@ -348,9 +353,9 @@
                 .attr("transform", function (d) {
                     return "translate(" + x_category((d.cummulative * x_defect.bandwidth())) + ",0)";
                 })
-                .attr("fill", function (d) {
-                    return color[d.key];
-                });
+                // .attr("fill", function (d) {
+                //     return bar_color[d.key];
+                // });
 
             var category_label = category_g.selectAll(".category-label")
                 .data(function (d) {
@@ -396,7 +401,7 @@
                     return "translate(" + x_label + "," + y_label + "),rotate(-60)";
                 })
                 .text(function (d) {
-                    return d.key;
+                    return pageInfo[d.key]["name"];
                 })
                 .attr('text-anchor', 'end');
 
@@ -407,7 +412,6 @@
                 })
                 .enter()
                 .append("rect")
-                
                 .attr("class", "rect")
                 .attr("width", x_category(x_defect.bandwidth() - barPadding))
                 .attr("x", function (d) {
@@ -417,6 +421,9 @@
                     return height;
                 })
                 .attr("height",0)
+                .attr("fill",function(d){
+                    return color(pageInfo[d["key"]][colorEncoding]);
+                })
                 .transition()
                 .duration(1000)
                 .attr("y", function (d) {
@@ -451,7 +458,7 @@
                 var score = cat[j][0];
                 var connectedPageID = cat[j][1];
                 var connectedPageName = cat[j][2]
-                dataInCat['values'].push({ 'key': connectedPageName, 'value': score })
+                dataInCat['values'].push({ 'key': connectedPageID, 'value': score })
             }
             data.push(dataInCat)
         }
