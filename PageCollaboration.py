@@ -81,15 +81,15 @@ def main_run_jaccard_single_call():
         page_dict=mongo.get_all_from_collection('page_dict_monthly')[0]
     if get_page_pairwise_from_big_query:
         page_id_string = generate_page_id_string(page_dict)
-        all_page_pairwise_list = get_intersection_union(page_id_string)
+        all_page_pairwise_monthly_list = get_intersection_union(page_id_string)
         mongo.insert_many('all_page_pairwise_monthly',all_page_pairwise_list)
     else:
-        all_page_pairwise_list=mongo.get_all_from_collection('all_page_pairwise_monthly')
-       
+        all_page_pairwise_monthly_list=mongo.get_all_from_collection('all_page_pairwise_monthly')
+        all_page_pairwise_list=mongo.get_all_from_collection('all_page_pairwise')
         
     i=0
-    #print(len(all_page_pairwise_list))
-    for page_pairwise in all_page_pairwise_list:
+    #print(len(all_page_pairwise_monthly_list))
+    for page_pairwise in all_page_pairwise_monthly_list:
         print(i)
         page_id1=page_pairwise['pageid1']
         page_id2=page_pairwise['pageid2']
@@ -103,10 +103,31 @@ def main_run_jaccard_single_call():
         name2 =  page_dict[page_id2]['name']
         page_score_tuple1 = (jaccard_sim,page_id1,name1,category1,intersect,union)
         page_score_tuple2 = (jaccard_sim,page_id2,name2,category2,intersect,union)
-        page_dict[page_id1]['score']={}
-        if month not in page_dict[page_id2]['score']:
+        if str(month) not in page_dict[page_id2]['score']:
             page_dict[page_id2]['score'][str(month)]=[]
-        if month not in page_dict[page_id1]['score']:
+        if str(month) not in page_dict[page_id1]['score']:
+            page_dict[page_id1]['score'][str(month)]=[]
+        page_dict[page_id1]['score'][str(month)].append(page_score_tuple2)
+        page_dict[page_id2]['score'][str(month)].append(page_score_tuple1)
+        i=i+1
+    i=0
+    for page_pairwise in all_page_pairwise_list:
+        print(i)
+        page_id1=page_pairwise['pageid1']
+        page_id2=page_pairwise['pageid2']
+        intersect = page_pairwise['intersect']
+        union =page_pairwise['union']
+        month = '-1'
+        jaccard_sim = 1.0*intersect/union
+        category1 =  page_dict[page_id1]['category']
+        category2 =  page_dict[page_id2]['category']
+        name1 = page_dict[page_id1]['name']
+        name2 =  page_dict[page_id2]['name']
+        page_score_tuple1 = (jaccard_sim,page_id1,name1,category1,intersect,union)
+        page_score_tuple2 = (jaccard_sim,page_id2,name2,category2,intersect,union)
+        if str(month) not in page_dict[page_id2]['score']:
+            page_dict[page_id2]['score'][str(month)]=[]
+        if str(month) not in page_dict[page_id1]['score']:
             page_dict[page_id1]['score'][str(month)]=[]
         page_dict[page_id1]['score'][str(month)].append(page_score_tuple2)
         page_dict[page_id2]['score'][str(month)].append(page_score_tuple1)
@@ -283,7 +304,7 @@ def generate_data_of_top(page_score):
     return data
 def main_generate_network_of_top():
     mongo = MongoDBManager('PageCollab')
-    page_dict=mongo.get_all_from_collection('page_dict')[0]
+    page_dict=mongo.get_all_from_collection('page_dict_monthly')[0]
     del page_dict['_id']
     page_score_list = mongo.get_all_from_collection('page_score')
     all_page_pairwise_list = mongo.get_all_from_collection('all_page_pairwise')
