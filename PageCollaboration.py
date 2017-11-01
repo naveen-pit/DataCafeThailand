@@ -117,7 +117,7 @@ def main_run_jaccard_single_call():
         page_id2=page_pairwise['pageid2']
         intersect = page_pairwise['intersect']
         union =page_pairwise['union']
-        month = '-1'
+        month = '0'
         jaccard_sim = 1.0*intersect/union
         category1 =  page_dict[page_id1]['category']
         category2 =  page_dict[page_id2]['category']
@@ -232,7 +232,7 @@ def extract_top_from_each_category(page_score_list):
     return page_score 
 
 def generate_data_of_top(page_score):
-    month_list = ['-1','1','2','3','4','5','6','7','8']
+    month_list = ['0','1','2','3','4','5','6','7','8']
     category_list = ['brand','media','artist']
     category_data=[]
     page_info_data={}

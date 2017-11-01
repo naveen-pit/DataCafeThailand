@@ -13,9 +13,12 @@
 </style>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/css/bootstrap-select.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.9.0/css/bootstrap-slider.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.9.0/css/bootstrap-slider.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.9.0/bootstrap-slider.js"></script>
 <div id="menu" class="col-md-12">
     <h1>Network</h1>
     <select id="dataset" class="selectpicker">
@@ -52,6 +55,7 @@
     <div id="networkStructure">
         <svg width="640" height="500" id="svg"></svg>
     </div>
+    <input id="timeSlider" data-slider-id='ex1Slider' type="text" data-slider-min="0" data-slider-max="8" data-slider-step="1" data-slider-value="0"/>
     
 </div>
 <div id="rightPane" class="col-md-8">
@@ -67,7 +71,7 @@
         height = +svg.attr("height");
 
     var color = d3.scaleOrdinal(d3.schemeCategory10);
-    var colorEncoding = "category"
+    var colorEncoding = "group"
     var isNodeClicked = false;
     var nodeIdClicked;
     var nodeList;
@@ -75,17 +79,62 @@
     var pageInfo;
     var simulation;
     var category;
-    var selectMonth ='-1'
+    var selectMonth ="0";
+    var nodeSizeEncoding="none";
+    $("#timeSlider").slider({
+        tooltip: 'always',
+        focuse:true
+    });
+    $("#timeSlider").on("slide",function(slideEvt){
+        if((slideEvt.value+"")!=selectMonth){
+            selectMonth = slideEvt.value+"";
+            var nodes = d3.selectAll("circle")
+            .transition()
+            .delay(0)
+            .duration(200)
+            .attr("r", function (d) {
+                if(selectMonth in pageInfo[d["id"]]){
+                    if (nodeSizeEncoding == "none") {
+                        return RADIUS;
+                    }
+                    return RADIUS + (factor * pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
+                }
+                else{
+                    return 0;
+                }
+            })
+            .attr("fill", function (d) {
+                    if(selectMonth in pageInfo[d["id"]]){
+                            return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
+                        }
+                        return "#000"
+                });
+            simulation
+            .force("collide", d3.forceCollide().radius(function (d) {
+                if(selectMonth in pageInfo[d["id"]]){
+                    if (nodeSizeEncoding == "none") {
+                        return RADIUS;
+                    }
+                    return RADIUS + (factor * pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
+                }
+                else{
+                    return 0;
+                }
+            }).iterations(5))
+        }
+       
+    })
     $('#dataset')
         .on("change", function () {
             var dataset = document.getElementById("dataset")
             var filePath = dataset.options[dataset.selectedIndex].value;
             document.getElementById("radioNone").checked = true;
             document.getElementById("radioCategory").checked = true;
-            colorEncoding = "group"
+            colorEncoding = "group";
+            nodeSizeEncoding ="none";
             isNodeClicked = false;
             nodeIdClicked = "";
-            loadDataSet(filePath)
+            loadDataSet(filePath);
         });
     $("input[name='nodeColorEncoding']").on("change", function () {
         colorEncoding = this.value;
@@ -100,33 +149,47 @@
             updateBarChart(nodeSelector.options[nodeSelector.selectedIndex].value)
         });
     $("input[name='nodeEncoding']").on("change", function () {
-        var attribute = this.value;
+        nodeSizeEncoding = this.value;
         var nodes = d3.selectAll("circle")
             .transition()
             .delay(0)
             .duration(200)
             .attr("r", function (d) {
-                if (attribute == "none") {
-                    return RADIUS;
+                if(selectMonth in pageInfo[d["id"]]){
+                    if (nodeSizeEncoding == "none") {
+                        return RADIUS;
+                    }
+                    return RADIUS + (factor * pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
                 }
-                return RADIUS + (factor * pageInfo[d["id"]][selectMonth][attribute]);
+                else{
+                    return 0;
+                }
             });
 
         nodes.each(function (d, i) {
             d3.select(this).select("title")
                 .text(function (d) {
-                    if (attribute == "none") {
+                    if(selectMonth in pageInfo[d["id"]]){
+                        if (nodeSizeEncoding == "none") {
+                            return pageInfo[d["id"]].name;
+                        }
+                        return pageInfo[d["id"]].name + ' ' + nodeSizeEncoding + '=' + pageInfo[d["id"]][selectMonth][nodeSizeEncoding];
+                    }else{
                         return pageInfo[d["id"]].name;
                     }
-                    return pageInfo[d["id"]].name + ' ' + attribute + '=' + pageInfo[d["id"]][selectMonth][attribute];
                 });
         })
         simulation
             .force("collide", d3.forceCollide().radius(function (d) {
-                if (attribute == "none") {
-                    return RADIUS + 0.5;
+                if(selectMonth in pageInfo[d["id"]]){
+                    if (nodeSizeEncoding == "none") {
+                        return RADIUS;
+                    }
+                    return RADIUS + (factor * pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
                 }
-                return RADIUS + (factor * pageInfo[d["id"]][selectMonth][attribute]) + 0.5;
+                else{
+                    return 0;
+                }
             }).iterations(5))
         simulation.alphaTarget(0.3).restart();
 
@@ -146,14 +209,14 @@
             }).iterations(5))
         d3.json(filePath, function (error, graph) {
             if (error) throw error;
-            pageInfo = graph['page_info'];
-            nodeList = graph['nodes'][selectMonth];
-            edgeList = graph['links'][selectMonth];
+            pageInfo = jQuery.extend(true, {}, graph['page_info']);;
+            nodeList = jQuery.extend(true, {}, graph['nodes']);;
+            edgeList = jQuery.extend(true, {}, graph['links']);;
             category = graph['category']
             //generate option for nodeSelector
             $('#nodeSelector').empty()
-            for (var i = 0; i < nodeList.length; i++) {
-                $('#nodeSelector').append('<option value="' + nodeList[i]["id"] + '">' + pageInfo[nodeList[i]["id"]]["name"] + '</option>');
+            for (var i = 0; i < nodeList[selectMonth].length; i++) {
+                $('#nodeSelector').append('<option value="' + nodeList[selectMonth][i]["id"] + '">' + pageInfo[nodeList[selectMonth][i]["id"]]["name"] + '</option>');
             }
 
             $('#nodeSelector').selectpicker("refresh");
@@ -173,7 +236,10 @@
                 .attr("class", function (d) { return "nodes name" + pageInfo[d["id"]].name + " id" + d.id })
                 .attr("r", function (d) { return RADIUS; })
                 .attr("fill", function (d) {
-                    return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
+                    if(selectMonth in pageInfo[d["id"]]){
+                            return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
+                        }
+                        return "#000"
                 })
                 .call(d3.drag()
                     .on("start", dragstarted)
@@ -223,11 +289,17 @@
                 .attr("stroke-dasharray",null);
             d3.selectAll("rect")
             .attr("fill", function (d) {
-                    return color(pageInfo[d["key"]][selectMonth][colorEncoding]);
+                if(selectMonth in pageInfo[d["key"]]){
+                            return color(pageInfo[d["key"]][selectMonth][colorEncoding]);
+                        }
+                        return "#000"
                 })
             d3.select("circle.id" + pageID)
                 .attr("fill", function (d) {
-                    return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
+                    if(selectMonth in pageInfo[d["id"]]){
+                            return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
+                        }
+                        return "#000"
                 })
                 .attr("stroke", "black")
                 .attr("stroke-width", "3")
@@ -241,18 +313,24 @@
                     .attr("stroke-dasharray","3,3")
                 }
             }
-            for (var i = 0; i < edgeList.length; i++) {
-                var connectedPageID;
-                if (edgeList[i]["source"]["id"] == pageID) {
-                    connectedPageID = edgeList[i]["target"]["id"];
+
+            for (var i = 0; i < edgeList[selectMonth].length; i++) {
+                var connectedPageID="";
+                if (edgeList[selectMonth][i]["source"] == pageID) {
+                    connectedPageID = edgeList[selectMonth][i]["target"];
                 }
-                else if (edgeList[i]["target"]["id"] == pageID) {
-                    connectedPageID = edgeList[i]["source"]["id"];
+                else if (edgeList[selectMonth][i]["target"] == pageID) {
+                    connectedPageID = edgeList[selectMonth][i]["source"];
                 }
-                d3.select("circle.id" + connectedPageID)
-                    .attr("fill", function (d) {
-                        return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
-                    });
+                if(connectedPageID!=""){
+                    d3.select("circle.id" + connectedPageID)
+                        .attr("fill", function (d) {
+                            if(selectMonth in pageInfo[d["id"]]){
+                                return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
+                            }
+                            return "#000"
+                        });
+                }
             }
             $('#nodeSelector').selectpicker('val', pageID);
         }
@@ -260,13 +338,19 @@
             nodeIdClicked = "";
             d3.selectAll("circle")
                 .attr("fill", function (d) {
-                    return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
+                    if(selectMonth in pageInfo[d["id"]]){
+                            return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
+                        }
+                        return "#000"
                 })
                 .attr("stroke", null)
                 .attr("stroke-width", null);
                 d3.selectAll("rect")
                 .attr("fill", function (d) {
-                    return color(pageInfo[d["key"]][selectMonth][colorEncoding]);
+                    if(selectMonth in pageInfo[d["key"]]){
+                            return color(pageInfo[d["key"]][selectMonth][colorEncoding]);
+                        }
+                        return "#000"
                 })
             $('#nodeSelector').selectpicker('val', null);
         }
