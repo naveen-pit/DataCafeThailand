@@ -102,13 +102,7 @@
                 else{
                     return 0;
                 }
-            })
-            .attr("fill", function (d) {
-                    if(selectMonth in pageInfo[d["id"]]){
-                            return color(pageInfo[d["id"]][selectMonth][colorEncoding]);
-                        }
-                        return "#000"
-                });
+            });
             simulation
             .force("collide", d3.forceCollide().radius(function (d) {
                 if(selectMonth in pageInfo[d["id"]]){
@@ -121,6 +115,12 @@
                     return 0;
                 }
             }).iterations(5))
+            var focuseNode = nodeIdClicked;
+            //isNodeClicked = false;
+            highlightNode(focuseNode);
+            //isNodeClicked = true;
+            //highlightNode(focuseNode);
+            updateBarChart(focuseNode);
         }
        
     })
@@ -304,13 +304,15 @@
                 .attr("stroke", "black")
                 .attr("stroke-width", "3")
             for(var i=0;i<category.length;i++){
-                cat = pageInfo[pageID][selectMonth][category[i]];
-                for (var j=0;j<cat.length;j++){
-                    var connectedPageID = cat[j][1];
-                    d3.select("circle.id"+connectedPageID)
-                    .attr("stroke", "black")
-                    .attr("stroke-width", "3")
-                    .attr("stroke-dasharray","3,3")
+                if(selectMonth in pageInfo[pageID]){
+                    cat = pageInfo[pageID][selectMonth][category[i]];
+                    for (var j=0;j<cat.length;j++){
+                        var connectedPageID = cat[j][1];
+                        d3.select("circle.id"+connectedPageID)
+                        .attr("stroke", "black")
+                        .attr("stroke-width", "3")
+                        .attr("stroke-dasharray","3,3")
+                    }
                 }
             }
 
@@ -534,15 +536,17 @@
     function generateDataForBarChart(pageID) {
         var data = []
         for (var i = 0; i < category.length; i++) {
-            var cat = pageInfo[pageID][selectMonth][category[i]];
-            var dataInCat = { 'key': category[i], 'values': [] };
-            for (var j = 0; j < cat.length; j++) {
-                var score = cat[j][0];
-                var connectedPageID = cat[j][1];
-                var connectedPageName = cat[j][2]
-                dataInCat['values'].push({ 'key': connectedPageID, 'value': score })
+            if(selectMonth in pageInfo[pageID]){
+                var cat = pageInfo[pageID][selectMonth][category[i]];
+                var dataInCat = { 'key': category[i], 'values': [] };
+                for (var j = 0; j < cat.length; j++) {
+                    var score = cat[j][0];
+                    var connectedPageID = cat[j][1];
+                    var connectedPageName = cat[j][2]
+                    dataInCat['values'].push({ 'key': connectedPageID, 'value': score })
+                }
+                data.push(dataInCat)
             }
-            data.push(dataInCat)
         }
         return data;
     }
