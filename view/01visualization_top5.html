@@ -5,6 +5,16 @@
         stroke: #999;
         stroke-opacity: 0.6;
     }
+div.tooltip {	
+    position: absolute;			
+    text-align: center;							
+    padding: 2px;				
+    font: 12px sans-serif;		
+    background: lightgray;	
+    border: 0px;		
+    border-radius: 8px;			
+    pointer-events: none;			
+}
 
 /*.nodes circle {
   stroke: #fff;
@@ -23,11 +33,10 @@
     <h1>Network</h1>
     <select id="dataset" class="selectpicker">
         <option disabled selected value> -- select dataset -- </option>
-        <option value="datatop5 cat12345.json">top5_all</option>
-        <option value="datatop5 cat1.json">top5 brands</option>
-        <option value="datatop5 cat13.json">top5 brands-artists</option>
-        <option value="datatop5 cat3.json">top5 artists</option>
-        <option value="datatop5_monthly cat12345.json">top5_all_monthly</option>
+        <option value="datatop5_monthly cat12345.json">top5_all</option>
+        <option value="datatop5_monthly cat1.json">top5 brands</option>
+        <option value="datatop5_monthly cat13.json">top5 brands-artists</option>
+        <option value="datatop5_monthly cat3.json">top5 artists</option>
         <option value="data_0.json">all</option>
         <option value="data_1.json">1perent</option>
     </select>
@@ -63,9 +72,8 @@
 </div>
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script>
-    var factor = 100
-    var RADIUS = 6.5
-
+    var MAX_RADIUS = 20;
+    var RADIUS = 6.5;
     var svg = d3.select("svg"),
         width = +svg.attr("width"),
         height = +svg.attr("height");
@@ -81,6 +89,10 @@
     var category;
     var selectMonth ="0";
     var nodeSizeEncoding="none";
+    var nodeSizeScale={};
+    var tooltipDiv = d3.select("body").append("div")	
+        .attr("class", "tooltip")				
+        .style("opacity", 0);
     $("#timeSlider").slider({
         tooltip: 'always',
         focuse:true
@@ -97,7 +109,7 @@
                     if (nodeSizeEncoding == "none") {
                         return RADIUS;
                     }
-                    return RADIUS + (factor * pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
+                    return RADIUS +  nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
                 }
                 else{
                     return 0;
@@ -109,7 +121,7 @@
                     if (nodeSizeEncoding == "none") {
                         return RADIUS;
                     }
-                    return RADIUS + (factor * pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
+                    return RADIUS +  nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
                 }
                 else{
                     return 0;
@@ -159,25 +171,38 @@
                     if (nodeSizeEncoding == "none") {
                         return RADIUS;
                     }
-                    return RADIUS + (factor * pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
+                    return RADIUS +  nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
                 }
                 else{
                     return 0;
                 }
             });
 
-        nodes.each(function (d, i) {
-            d3.select(this).select("title")
-                .text(function (d) {
+        nodes.each(function (d, i) {  
+                d3.select(this).on("mouseover", function(d) {
+                    var text = "";
                     if(selectMonth in pageInfo[d["id"]]){
                         if (nodeSizeEncoding == "none") {
-                            return pageInfo[d["id"]].name;
+                            text= pageInfo[d["id"]].name;
                         }
-                        return pageInfo[d["id"]].name + ' ' + nodeSizeEncoding + '=' + pageInfo[d["id"]][selectMonth][nodeSizeEncoding];
+                        else{
+                            text= pageInfo[d["id"]].name + ' ' + nodeSizeEncoding + '=' + pageInfo[d["id"]][selectMonth][nodeSizeEncoding].toFixed(6);
+                        }
                     }else{
-                        return pageInfo[d["id"]].name;
-                    }
-                });
+                        text= pageInfo[d["id"]].name;
+                    }	
+                    tooltipDiv.transition()		
+                    .duration(100)		
+                    .style("opacity", 1);		
+                    tooltipDiv.html(text )	
+                    .style("left", (d3.event.pageX) + "px")		
+                    .style("top", (d3.event.pageY - 28) + "px");	
+                })					
+                d3.select(this).on("mouseout", function(d) {		
+                    tooltipDiv.transition()		
+                    .duration(200)		
+                    .style("opacity", 0);
+            });
         })
         simulation
             .force("collide", d3.forceCollide().radius(function (d) {
@@ -185,7 +210,7 @@
                     if (nodeSizeEncoding == "none") {
                         return RADIUS;
                     }
-                    return RADIUS + (factor * pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
+                    return RADIUS +  nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
                 }
                 else{
                     return 0;
@@ -213,6 +238,7 @@
             nodeList = jQuery.extend(true, {}, graph['nodes']);;
             edgeList = jQuery.extend(true, {}, graph['links']);;
             category = graph['category']
+            createNodeSizeScale(graph['range']);
             //generate option for nodeSelector
             $('#nodeSelector').empty()
             for (var i = 0; i < nodeList[selectMonth].length; i++) {
@@ -256,9 +282,19 @@
                     updateBarChart(d["id"]);
                 });;
 
-            node.append("title")
-                .text(function (d) { return pageInfo[d["id"]].name });
-
+            node.on("mouseover", function(d) {		
+                tooltipDiv.transition()		
+                .duration(100)		
+                .style("opacity", 1);		
+                tooltipDiv.html(pageInfo[d["id"]].name )	
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");	
+            })					
+            node.on("mouseout", function(d) {		
+                tooltipDiv.transition()		
+                .duration(200)		
+                .style("opacity", 0);	
+        });
             simulation
                 .nodes(graph['nodes'][selectMonth])
                 .on("tick", ticked);
@@ -278,6 +314,22 @@
                     .attr("cy", function (d) { return d.y; });
             }
         });
+    }
+    function createNodeSizeScale(scoreRange){
+        for(var month in scoreRange){
+            nodeSizeScale[month] = {};
+            for(var sizeEncoding in scoreRange[month]){
+                var min = scoreRange[month][sizeEncoding]['min'];
+                var max =scoreRange[month][sizeEncoding]['max'];
+                if(min==1){
+                    min=0;
+                }
+                if(max==0){
+                    max=1;
+                }
+                nodeSizeScale[month][sizeEncoding] = d3.scaleLinear().domain([min,max]).range([0,MAX_RADIUS]);
+            }
+        }
     }
     function highlightNode(pageID) {
         if (isNodeClicked) {

@@ -245,29 +245,29 @@ def generate_data_of_top(page_score):
         'nodes':{},
         'links':{},
         #'page_info':page_info_data,
-        'category':list(set(category_data))
+        'category':list(set(category_data)),
     }
+    score_range={}
     for month in month_list:
         print('month='+month)
         node_list=[]
         edge_list=[]
-        
         node_exist={}
-
+        score_range[month]={'betweenness':{'min':1,'max':0},'degree':{'min':1,'max':0}}
         for pageid1 in page_score:
             for category in category_list:
                 if month in page_score[pageid1] and category in page_score[pageid1][month]:
                     for page_tuple in page_score[pageid1][month][category]:
                         score = page_tuple[0] *100
                         pageid2 = page_tuple[1]
-                        category = page_tuple[3]
+                        tuple_category = page_tuple[3]
                         if (pageid1 not in node_exist) or (pageid2 not in node_exist[pageid1]):
                             link={
                                 'source':pageid1,
                                 'target':pageid2,
                                 'value':score
                             }
-                            if len(page_score[pageid1]['score'][month])>0 and page_score[pageid1]['category'] in CATEGORY and page_score[pageid2]['category'] in CATEGORY:
+                            if len(page_score[pageid1]['score'][month])>2 and page_score[pageid1]['category'] in CATEGORY and page_score[pageid2]['category'] in CATEGORY:
                                 edge_list.append(link)
                             if (pageid1 not in node_exist):
                                 node_exist[pageid1]={}
@@ -278,11 +278,11 @@ def generate_data_of_top(page_score):
         g= nx.Graph()
         degree={}
         for page_id in page_score:
-            if month in page_score[page_id] and  len(page_score[page_id]['score'][month])>0 and page_score[page_id]['category'] in CATEGORY:
+            if month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2 and page_score[page_id]['category'] in CATEGORY:
                 g.add_node(page_id)
                 degree[page_id]=0
         for edge in edge_list:
-            if month in page_score[edge['source']] and len(page_score[edge['source']]['score'][month])>0 and page_score[edge['source']]['category'] in CATEGORY and month in page_score[edge['target']] and page_score[edge['target']]['category'] in CATEGORY:
+            if month in page_score[edge['source']] and len(page_score[edge['source']]['score'][month])>2 and page_score[edge['source']]['category'] in CATEGORY and month in page_score[edge['target']] and page_score[edge['target']]['category'] in CATEGORY:
                 g.add_edge(edge['source'],edge['target'],weight=edge['value'])
         partition = community.best_partition(g)
         if(len(g)>1):
@@ -292,13 +292,22 @@ def generate_data_of_top(page_score):
         # eigenvector = nx.eigenvector_centrality(g)
 
         for page_id in page_score:
-            if month in page_score[page_id] and  len(page_score[page_id]['score'][month])>0 and page_score[page_id]['category'] in CATEGORY:
+            if month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2 and page_score[page_id]['category'] in CATEGORY:
                 catetory_id = page_score[page_id]['category']
                 if catetory_id==2 or catetory_id==4 or catetory_id==5:
                     catetory_id=2
                 node = {
                     'id':page_id  
                 }
+                #find score_range
+                if betweenness[page_id]>score_range[month]['betweenness']['max']:
+                    score_range[month]['betweenness']['max'] = betweenness[page_id]
+                if betweenness[page_id]<score_range[month]['betweenness']['min']:
+                    score_range[month]['betweenness']['min'] = betweenness[page_id]
+                if degree[page_id]>score_range[month]['degree']['max']:
+                    score_range[month]['degree']['max'] = degree[page_id]
+                if degree[page_id]<score_range[month]['degree']['min']:
+                    score_range[month]['degree']['min'] = degree[page_id]
                 node_list.append(node)
                 if page_id not in page_info_data:
                      page_info_data[page_id]={ 'group':catetory_id,'name':page_score[page_id]['name']}
@@ -326,6 +335,7 @@ def generate_data_of_top(page_score):
         #     'category':list(set(category_data))
         # }
     data['page_info'] = page_info_data
+    data['range']=score_range
     return data
 def main_generate_network_of_top():
     mongo = MongoDBManager('PageCollab')
