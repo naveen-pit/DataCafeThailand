@@ -15,6 +15,9 @@ div.tooltip {
     border-radius: 8px;			
     pointer-events: none;			
 }
+.dropdown-menu > .active > a, .dropdown-menu > .active > a:focus, .dropdown-menu > .active > a:hover {
+    color: black !important;
+}
 
 /*.nodes circle {
   stroke: #fff;
@@ -37,8 +40,8 @@ div.tooltip {
         <option value="datatop5_monthly cat1.json">top5 brands</option>
         <option value="datatop5_monthly cat13.json">top5 brands-artists</option>
         <option value="datatop5_monthly cat3.json">top5 artists</option>
-        <option value="data_0.json">all</option>
-        <option value="data_0.01 cat12345.json">threshold at 1perent</option>
+        <option value="data_0.01 cat3.json">artist threshold at 1perent</option>
+        <option value="data_0.01 cat12345.json">all threshold at 1perent</option>
     </select>
     <form id="radioNameEncoding">
         <br> node size encoding
@@ -128,10 +131,7 @@ div.tooltip {
                 }
             }).iterations(5))
             var focuseNode = nodeIdClicked;
-            //isNodeClicked = false;
             highlightNode(focuseNode);
-            //isNodeClicked = true;
-            //highlightNode(focuseNode);
             updateBarChart(focuseNode);
         }
        
@@ -242,7 +242,9 @@ div.tooltip {
             //generate option for nodeSelector
             $('#nodeSelector').empty()
             for (var i = 0; i < nodeList[selectMonth].length; i++) {
-                $('#nodeSelector').append('<option value="' + nodeList[selectMonth][i]["id"] + '">' + pageInfo[nodeList[selectMonth][i]["id"]]["name"] + '</option>');
+                var nodeId = nodeList[selectMonth][i]["id"];
+                //$('#nodeSelector').append('<option value="' + nodeId + '">' + pageInfo[nodeList[selectMonth][i]["id"]]["name"] + '</option>');
+                $('#nodeSelector').append('<option style="background: linear-gradient(90deg, white 25px,'+color(pageInfo[nodeId][selectMonth][colorEncoding])+' 25px,'+color(pageInfo[nodeId][selectMonth][colorEncoding])+' 100px,white 100px);  padding-left:110px; " value="' + nodeId + '">' + pageInfo[nodeList[selectMonth][i]["id"]]["name"] + '</option>');
             }
 
             $('#nodeSelector').selectpicker("refresh");
