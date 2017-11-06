@@ -7,7 +7,7 @@ import networkx as nx
 client = bigquery.Client()
 import community
 THRESHOLD =0.01
-CATEGORY=[1,2,3,4,5]
+CATEGORY=[3]
 def query(query_string,use_legacy=True):
     query_job = client.run_async_query(str(uuid.uuid4()), query_string)
     query_job.use_legacy_sql = use_legacy

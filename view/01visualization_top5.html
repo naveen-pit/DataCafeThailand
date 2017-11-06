@@ -16,13 +16,9 @@ div.tooltip {
     pointer-events: none;			
 }
 .dropdown-menu > .active > a, .dropdown-menu > .active > a:focus, .dropdown-menu > .active > a:hover {
-    color: black !important;
+    color: red !important;
 }
 
-/*.nodes circle {
-  stroke: #fff;
-  stroke-width: 1.5px;
-}*/
 </style>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/css/bootstrap-select.min.css">
@@ -77,12 +73,15 @@ div.tooltip {
 <script>
     var MAX_RADIUS = 20;
     var RADIUS = 6.5;
+    var OPTION_BAR_PADDING=10
+    var OPTION_BAR_MAX_LENGTH=100;
     var svg = d3.select("svg"),
         width = +svg.attr("width"),
         height = +svg.attr("height");
 
     var color = d3.scaleOrdinal(d3.schemeCategory10);
-    var colorEncoding = "group"
+    var colorEncoding = "group";
+    var colorEncodingList=['group','partition'];
     var isNodeClicked = false;
     var nodeIdClicked;
     var nodeList;
@@ -92,7 +91,10 @@ div.tooltip {
     var category;
     var selectMonth ="0";
     var nodeSizeEncoding="none";
+    var nodeSizeEncodingList=['none','degree','betweenness'];
     var nodeSizeScale={};
+    var nodeBarScale={};
+    var optionInfo={};
     var tooltipDiv = d3.select("body").append("div")	
         .attr("class", "tooltip")				
         .style("opacity", 0);
@@ -103,6 +105,7 @@ div.tooltip {
     $("#timeSlider").on("slide",function(slideEvt){
         if((slideEvt.value+"")!=selectMonth){
             selectMonth = slideEvt.value+"";
+            reloadOption();
             var nodes = d3.selectAll("circle")
             .transition()
             .delay(0)
@@ -150,7 +153,9 @@ div.tooltip {
         });
     $("input[name='nodeColorEncoding']").on("change", function () {
         colorEncoding = this.value;
+        reloadOption();
         highlightNode(nodeIdClicked);
+        
     });
     $('#nodeSelector')
         .on("change", function () {
@@ -162,6 +167,7 @@ div.tooltip {
         });
     $("input[name='nodeEncoding']").on("change", function () {
         nodeSizeEncoding = this.value;
+        reloadOption();
         var nodes = d3.selectAll("circle")
             .transition()
             .delay(0)
@@ -238,17 +244,9 @@ div.tooltip {
             nodeList = jQuery.extend(true, {}, graph['nodes']);;
             edgeList = jQuery.extend(true, {}, graph['links']);;
             category = graph['category']
-            createNodeSizeScale(graph['range']);
-            //generate option for nodeSelector
-            $('#nodeSelector').empty()
-            for (var i = 0; i < nodeList[selectMonth].length; i++) {
-                var nodeId = nodeList[selectMonth][i]["id"];
-                //$('#nodeSelector').append('<option value="' + nodeId + '">' + pageInfo[nodeList[selectMonth][i]["id"]]["name"] + '</option>');
-                $('#nodeSelector').append('<option style="background: linear-gradient(90deg, white 25px,'+color(pageInfo[nodeId][selectMonth][colorEncoding])+' 25px,'+color(pageInfo[nodeId][selectMonth][colorEncoding])+' 100px,white 100px);  padding-left:110px; " value="' + nodeId + '">' + pageInfo[nodeList[selectMonth][i]["id"]]["name"] + '</option>');
-            }
-
-            $('#nodeSelector').selectpicker("refresh");
-            $('#nodeSelector').selectpicker('val', null);
+            createOptionInfo(graph['range']);
+            createNodeScale(graph['range']);
+            reloadOption();
             var link = svg.append("g")
                 .attr("class", "links")
                 .selectAll("line")
@@ -317,9 +315,80 @@ div.tooltip {
             }
         });
     }
-    function createNodeSizeScale(scoreRange){
+    function reloadOption(){
+         //generate option for nodeSelector
+        $('#nodeSelector').empty();
+        for(var clusterID in optionInfo[selectMonth][nodeSizeEncoding][colorEncoding]){
+            for (var i=0;i<optionInfo[selectMonth][nodeSizeEncoding][colorEncoding][clusterID].length;i++){
+                nodeInfo=optionInfo[selectMonth][nodeSizeEncoding][colorEncoding][clusterID][i];
+                //nodeInfo=['score','id','name']
+                var score = nodeInfo[0];
+                var nodeId = nodeInfo[1];
+                var nodeName = nodeInfo[2];
+                var barLength =100;
+                if(nodeSizeEncoding!='none'){
+                    barLength = nodeBarScale[selectMonth][nodeSizeEncoding](score);
+                }
+                var whiteWidth = OPTION_BAR_MAX_LENGTH-barLength;
+                $('#nodeSelector').append('<option style="background: linear-gradient(90deg, white '+whiteWidth+'px,'+color(pageInfo[nodeId][selectMonth][colorEncoding])+' '+whiteWidth+'px,'+color(pageInfo[nodeId][selectMonth][colorEncoding])+' 100px,white 100px);  padding-left:110px; " value="' + nodeId + '">' + nodeName + '</option>');
+            }
+        }
+        
+        $('#nodeSelector').selectpicker("refresh");
+        if(nodeIdClicked!=""){
+            $('#nodeSelector').selectpicker('val', nodeIdClicked);
+        }
+        else{
+            $('#nodeSelector').selectpicker('val', null);
+        }
+            
+    }
+    function createOptionInfo(scoreRange){
+        for(var month in scoreRange){
+            optionInfo[month]={};
+            for(var j=0;j< nodeSizeEncodingList.length;j++){
+                optionInfo[month][nodeSizeEncodingList[j]]={};
+                for(var k=0; k < colorEncodingList.length;k++){
+                    optionInfo[month][nodeSizeEncodingList[j]][colorEncodingList[k]]={};
+                }
+            }
+            for(var j=0;j< nodeList[month].length;j++){
+                var id = nodeList[month][j]['id'];
+                for(var k=0;k< nodeSizeEncodingList.length;k++){    
+                    for(var m=0; m < colorEncodingList.length;m++){
+                        var clusterId = pageInfo[id][selectMonth][colorEncodingList[m]];
+                        if(!(clusterId in optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]])){
+                            optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]][clusterId]=[];
+                        }
+                        var nodeInfo=[];
+                        if (nodeSizeEncodingList[k] == "none") {
+                            nodeInfo=[id,id,pageInfo[id]["name"]];
+                        }
+                        else{
+                            nodeInfo=[pageInfo[id][month][nodeSizeEncodingList[k]],id,pageInfo[id]["name"]]
+                        }
+                        optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]][clusterId].push(nodeInfo);
+                    }
+                }
+            }
+            //sort the result
+            for(var j=0;j< nodeSizeEncodingList.length;j++){
+                for(var k=0; k < colorEncodingList.length;k++){
+                    for(var m in optionInfo[month][nodeSizeEncodingList[j]][colorEncodingList[k]]){
+                        optionInfo[month][nodeSizeEncodingList[j]][colorEncodingList[k]][m].sort(function(a,b){
+                                if(a[0]<b[0]) return 1;
+                                if(a[0]>b[0]) return -1;
+                                return 0;
+                        });
+                    }
+                }
+            }
+        }
+    }
+    function createNodeScale(scoreRange){
         for(var month in scoreRange){
             nodeSizeScale[month] = {};
+            nodeBarScale[month]={};
             for(var sizeEncoding in scoreRange[month]){
                 var min = scoreRange[month][sizeEncoding]['min'];
                 var max =scoreRange[month][sizeEncoding]['max'];
@@ -330,6 +399,7 @@ div.tooltip {
                     max=1;
                 }
                 nodeSizeScale[month][sizeEncoding] = d3.scaleLinear().domain([min,max]).range([0,MAX_RADIUS]);
+                nodeBarScale[month][sizeEncoding] = d3.scaleLinear().domain([min,max]).range([0,OPTION_BAR_MAX_LENGTH-OPTION_BAR_PADDING]);
             }
         }
     }
