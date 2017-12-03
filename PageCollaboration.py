@@ -6,8 +6,10 @@ from datetime import datetime
 import networkx as nx
 client = bigquery.Client()
 import community
-THRESHOLD =0.01
-CATEGORY=[3]
+THRESHOLD_STRING='percentile95'
+#THRESHOLD={'0':0.019591264,'1':1,'2':1,'3':1,'4':0.009253993,'5':0.0139308,'6':0.015639112,'7':0.016478019,'8':0.014431916} #percentile90
+THRESHOLD={'0':0.042686806,'1':1,'2':1,'3':1,'4':0.016973777,'5':0.036735772,'6':0.039468444,'7':0.037965443,'8':0.037860194} #percentile95
+CATEGORY=[1,2,3,4,5]
 def query(query_string,use_legacy=True):
     query_job = client.run_async_query(str(uuid.uuid4()), query_string)
     query_job.use_legacy_sql = use_legacy
@@ -245,7 +247,7 @@ def extract_above_threshold_percent_from_each_category(page_score_list):
             num_page_in_list =0
             for page_tuple in reversed(score):
                 page_tuple_score =  page_tuple[0]          
-                if page_tuple_score < THRESHOLD:
+                if page_tuple_score < THRESHOLD[month]:
                     break
                 category = page_tuple[3]
                 if category==1:
@@ -302,13 +304,13 @@ def generate_data_of_top(page_score,threshold_is_on = False):
         g= nx.Graph()
         degree={}
         for page_id in page_score:
-            if month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2 and page_score[page_id]['category'] in CATEGORY:
-                if (not threshold_is_on) or (threshold_is_on and page_score[page_id]['score'][month][len(page_score[page_id]['score'][month])-3][0]>THRESHOLD): 
+            if month=='0' or (month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2 and page_score[page_id]['category'] in CATEGORY):
+                if month=='0' or(not threshold_is_on) or (threshold_is_on and page_score[page_id]['score'][month][len(page_score[page_id]['score'][month])-3][0]>THRESHOLD[month]): 
                     g.add_node(page_id)
                     degree[page_id]=0
         for edge in edge_list:
             if month in page_score[edge['source']] and len(page_score[edge['source']]['score'][month])>2 and page_score[edge['source']]['category'] in CATEGORY and month in page_score[edge['target']] and page_score[edge['target']]['category'] in CATEGORY:
-                if (not threshold_is_on) or (threshold_is_on and page_score[edge['source']]['score'][month][len(page_score[edge['source']]['score'][month])-3][0]>THRESHOLD):
+                if (not threshold_is_on) or (threshold_is_on and page_score[edge['source']]['score'][month][len(page_score[edge['source']]['score'][month])-3][0]>THRESHOLD[month]):
                     g.add_edge(edge['source'],edge['target'],weight=edge['value'])
         partition = community.best_partition(g)
         if(len(g)>1):
@@ -318,8 +320,8 @@ def generate_data_of_top(page_score,threshold_is_on = False):
         # eigenvector = nx.eigenvector_centrality(g)
 
         for page_id in page_score:
-            if month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2 and page_score[page_id]['category'] in CATEGORY:
-                if (not threshold_is_on) or (threshold_is_on and page_score[page_id]['score'][month][len(page_score[page_id]['score'][month])-3][0]>THRESHOLD):
+            if month=='0' or (month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2 and page_score[page_id]['category'] in CATEGORY):
+                if month=='0' or(not threshold_is_on) or (threshold_is_on and page_score[page_id]['score'][month][len(page_score[page_id]['score'][month])-3][0]>THRESHOLD[month]):
                     catetory_id = page_score[page_id]['category']
                     if catetory_id==2 or catetory_id==4 or catetory_id==5:
                         catetory_id=2
@@ -338,17 +340,30 @@ def generate_data_of_top(page_score,threshold_is_on = False):
                     node_list.append(node)
                     if page_id not in page_info_data:
                         page_info_data[page_id]={ 'group':catetory_id,'name':page_score[page_id]['name']}
-                    page_info_data[page_id][month]={
-                        'partition':partition[page_id],
-                        'group':catetory_id,
-                        'betweenness':betweenness[page_id],
-                        # 'closeness':closeness[page_id],
-                        # 'eigenvector':eigenvector[page_id],
-                        'degree':degree[page_id],
-                        'brand':page_score[page_id][month]['brand'],
-                        'media':page_score[page_id][month]['media'],
-                        'artist':page_score[page_id][month]['artist']
-                    }
+                    if month in page_score[page_id]:
+                        page_info_data[page_id][month]={
+                            'partition':partition[page_id],
+                            'group':catetory_id,
+                            'betweenness':betweenness[page_id],
+                            # 'closeness':closeness[page_id],
+                            # 'eigenvector':eigenvector[page_id],
+                            'degree':degree[page_id],
+                            'brand':page_score[page_id][month]['brand'],
+                            'media':page_score[page_id][month]['media'],
+                            'artist':page_score[page_id][month]['artist']
+                        }
+                    else:
+                        page_info_data[page_id][month]={
+                            'partition':partition[page_id],
+                            'group':catetory_id,
+                            'betweenness':betweenness[page_id],
+                            # 'closeness':closeness[page_id],
+                            # 'eigenvector':eigenvector[page_id],
+                            'degree':degree[page_id],
+                            'brand':[],
+                            'media':[],
+                            'artist':[]
+                        }
 
         if month not in data['nodes']:
             data['nodes'][month]=[]
@@ -375,7 +390,7 @@ def main_generate_network_of_above_threshold():
     page_score_list = mongo.get_all_from_collection('page_score_monthly')
     page_score = extract_above_threshold_percent_from_each_category(page_score_list)
     data = generate_data_of_top(page_score, threshold_is_on=True)
-    file_name = './view/data_'+str(THRESHOLD)+' cat'+str(CATEGORY).replace('\'','').replace('[','').replace(']','').replace(', ','')+'.json'
+    file_name = './view/data_'+str(THRESHOLD_STRING)+' cat'+str(CATEGORY).replace('\'','').replace('[','').replace(']','').replace(', ','')+'.json'
     write_json(file_name,data)
 if __name__=="__main__":
     print('begin')

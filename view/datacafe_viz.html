@@ -32,12 +32,11 @@ div.tooltip {
     <h1>Network</h1>
     <select id="dataset" class="selectpicker">
         <option disabled selected value> -- select dataset -- </option>
-        <option value="datatop5_monthly cat12345.json">top5_all</option>
         <option value="datatop5_monthly cat1.json">top5 brands</option>
         <option value="datatop5_monthly cat13.json">top5 brands-artists</option>
         <option value="datatop5_monthly cat3.json">top5 artists</option>
-        <option value="data_0.01 cat3.json">artist threshold at 1perent</option>
-        <option value="data_0.01 cat12345.json">all threshold at 1perent</option>
+        <option value="data_percentile90 cat12345.json">all threshold at percentile90</option>
+        <option value="data_percentile95 cat12345.json">all threshold at percentile95</option>
     </select>
     <form id="radioNameEncoding">
         <br> node size encoding
@@ -59,14 +58,14 @@ div.tooltip {
     <select class="selectpicker" data-live-search="true" id="nodeSelector" title="-- select page --">
     </select>
 </div>
-<div id="leftPane" class="col-md-4">
+<div id="leftPane" class="col-md-6">
     <div id="networkStructure">
-        <svg width="640" height="500" id="svg"></svg>
+        <svg width="640" height="640" id="svg"></svg>
     </div>
     <input id="timeSlider" data-slider-id='ex1Slider' type="text" data-slider-min="0" data-slider-max="8" data-slider-step="1" data-slider-value="0"/>
     
 </div>
-<div id="rightPane" class="col-md-8">
+<div id="rightPane" class="col-md-6">
     <svg id="barchart"></svg>
 </div>
 <script src="https://d3js.org/d3.v4.min.js"></script>
@@ -142,7 +141,7 @@ div.tooltip {
     $('#dataset')
         .on("change", function () {
             var dataset = document.getElementById("dataset")
-            var filePath = dataset.options[dataset.selectedIndex].value;
+            var filePath = "https://pnaveen.com/datacafe/"+dataset.options[dataset.selectedIndex].value;
             document.getElementById("radioNone").checked = true;
             document.getElementById("radioCategory").checked = true;
             colorEncoding = "group";
@@ -228,8 +227,9 @@ div.tooltip {
     });
     function loadDataSet(filePath) {
         document.getElementById("svg").innerHTML = '';
-        document.getElementById("barchart").innerHTML="";
-        simulation = d3.forceSimulation()
+        document.getElementById("barchart").innerHTML="";    
+        d3.json(filePath, function (error, graph) {
+            simulation = d3.forceSimulation()
             .force("link", d3.forceLink().id(function (d) { return d.id; }))
             .force("forceX", d3.forceX().strength(.1).x(width * .5))
             .force("forceY", d3.forceY().strength(.1).y(height * .5))
@@ -238,7 +238,6 @@ div.tooltip {
             .force("collide", d3.forceCollide().radius(function (d) {
                 return RADIUS + 0.5;
             }).iterations(5))
-        d3.json(filePath, function (error, graph) {
             if (error) throw error;
             pageInfo = jQuery.extend(true, {}, graph['page_info']);;
             nodeList = jQuery.extend(true, {}, graph['nodes']);;
@@ -356,6 +355,7 @@ div.tooltip {
                 var id = nodeList[month][j]['id'];
                 for(var k=0;k< nodeSizeEncodingList.length;k++){    
                     for(var m=0; m < colorEncodingList.length;m++){
+                        //console.log( pageInfo[id]);
                         var clusterId = pageInfo[id][selectMonth][colorEncodingList[m]];
                         if(!(clusterId in optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]])){
                             optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]][clusterId]=[];
