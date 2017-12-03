@@ -29,7 +29,7 @@ div.tooltip {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.12.4/js/bootstrap-select.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.9.0/bootstrap-slider.js"></script>
 <div id="menu" class="col-md-12">
-    <h1>Network</h1>
+    <h1>PageLink</h1>
     <select id="dataset" class="selectpicker">
         <option disabled selected value> -- select dataset -- </option>
         <option value="datatop5_monthly cat1.json">top5 brands</option>
@@ -46,6 +46,8 @@ div.tooltip {
         <input type="radio" name="nodeEncoding" id="radioDegree" value="degree">Degree</label>
         <label class="radio-inline"></label>
         <input type="radio" name="nodeEncoding" id="radioBetweenness" value="betweenness">Betweenness</label>
+        <label class="radio-inline"></label>
+        <input type="radio" name="nodeEncoding" id="radioFanCount" value="fan_count">fan count</label>
     </form>
     <form id="radioColorEncoding">
         <br> Color encoding
@@ -90,7 +92,7 @@ div.tooltip {
     var category;
     var selectMonth ="0";
     var nodeSizeEncoding="none";
-    var nodeSizeEncodingList=['none','degree','betweenness'];
+    var nodeSizeEncodingList=['none','degree','betweenness','fan_count'];
     var nodeSizeScale={};
     var nodeBarScale={};
     var optionInfo={};
@@ -141,7 +143,8 @@ div.tooltip {
     $('#dataset')
         .on("change", function () {
             var dataset = document.getElementById("dataset")
-            var filePath = "https://pnaveen.com/datacafe/"+dataset.options[dataset.selectedIndex].value;
+            //var filePath = "https://pnaveen.com/datacafe/"+dataset.options[dataset.selectedIndex].value;
+            var filePath = dataset.options[dataset.selectedIndex].value;
             document.getElementById("radioNone").checked = true;
             document.getElementById("radioCategory").checked = true;
             colorEncoding = "group";
@@ -317,7 +320,13 @@ div.tooltip {
     function reloadOption(){
          //generate option for nodeSelector
         $('#nodeSelector').empty();
+        console.log(selectMonth)
+        console.log(nodeSizeEncoding)
+        console.log(colorEncoding)
+        console.log(optionInfo)
+        console.log(optionInfo[selectMonth][nodeSizeEncoding][colorEncoding])
         for(var clusterID in optionInfo[selectMonth][nodeSizeEncoding][colorEncoding]){
+            console.log(clusterID)
             for (var i=0;i<optionInfo[selectMonth][nodeSizeEncoding][colorEncoding][clusterID].length;i++){
                 nodeInfo=optionInfo[selectMonth][nodeSizeEncoding][colorEncoding][clusterID][i];
                 //nodeInfo=['score','id','name']
@@ -343,6 +352,27 @@ div.tooltip {
             
     }
     function createOptionInfo(scoreRange){
+        /*
+        optionInfo={
+            month0:{
+                betweenness={
+                    group:{
+                        0:[pageA,pageB,...],
+                        1:[pageC,pageD,...]
+                    }
+                },
+                degree={
+                    ....
+                },
+
+            },
+            month1:{
+                ...
+            },
+            ...
+            
+        }
+        */
         for(var month in scoreRange){
             optionInfo[month]={};
             for(var j=0;j< nodeSizeEncodingList.length;j++){
@@ -356,7 +386,7 @@ div.tooltip {
                 for(var k=0;k< nodeSizeEncodingList.length;k++){    
                     for(var m=0; m < colorEncodingList.length;m++){
                         //console.log( pageInfo[id]);
-                        var clusterId = pageInfo[id][selectMonth][colorEncodingList[m]];
+                        var clusterId = pageInfo[id][month][colorEncodingList[m]];
                         if(!(clusterId in optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]])){
                             optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]][clusterId]=[];
                         }

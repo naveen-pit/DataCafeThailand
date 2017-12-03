@@ -9,7 +9,7 @@ import community
 THRESHOLD_STRING='percentile95'
 #THRESHOLD={'0':0.019591264,'1':1,'2':1,'3':1,'4':0.009253993,'5':0.0139308,'6':0.015639112,'7':0.016478019,'8':0.014431916} #percentile90
 THRESHOLD={'0':0.042686806,'1':1,'2':1,'3':1,'4':0.016973777,'5':0.036735772,'6':0.039468444,'7':0.037965443,'8':0.037860194} #percentile95
-CATEGORY=[1,2,3,4,5]
+CATEGORY=[3]
 def query(query_string,use_legacy=True):
     query_job = client.run_async_query(str(uuid.uuid4()), query_string)
     query_job.use_legacy_sql = use_legacy
@@ -201,7 +201,7 @@ def main_generate_entire_network():
     }
     file_path = './view/data_'+str(THRESHOLD)+'.json'
     write_json(file_path,data)
-def extract_top_from_each_category(page_score_list):
+def extract_top_from_each_category(page_score_list,page_like_list):
     num_top=5
     page_score={}
     for page in page_score_list:
@@ -231,8 +231,11 @@ def extract_top_from_each_category(page_score_list):
                     if len(page_score[page_id][month]['artist'])<num_top:
                         page_score[page_id][month]['artist'].append(page_tuple)
                         num_page_in_list = num_page_in_list+1
+    for page in page_like_list:
+        page_id = page['page_id']
+        page_score[page_id]['fan_count']=page['fan_count']
     return page_score 
-def extract_above_threshold_percent_from_each_category(page_score_list):
+def extract_above_threshold_percent_from_each_category(page_score_list,page_like_list):
     page_score={}
     for page in page_score_list:
         page_id = page['page_id']
@@ -256,6 +259,9 @@ def extract_above_threshold_percent_from_each_category(page_score_list):
                     page_score[page_id][month]['media'].append(page_tuple)
                 elif category==3:
                     page_score[page_id][month]['artist'].append(page_tuple)
+    for page in page_like_list:
+        page_id = page['page_id']
+        page_score[page_id]['fan_count']=page['fan_count']
     return page_score 
 
 def generate_data_of_top(page_score,threshold_is_on = False):
@@ -279,7 +285,7 @@ def generate_data_of_top(page_score,threshold_is_on = False):
         node_list=[]
         edge_list=[]
         node_exist={}
-        score_range[month]={'betweenness':{'min':1,'max':0},'degree':{'min':1,'max':0}}
+        score_range[month]={'betweenness':{'min':1,'max':0},'degree':{'min':1,'max':0},'fan_count':{'min':1,'max':0}}
         for pageid1 in page_score:
             for category in category_list:
                 if month in page_score[pageid1] and category in page_score[pageid1][month]:
@@ -304,7 +310,7 @@ def generate_data_of_top(page_score,threshold_is_on = False):
         g= nx.Graph()
         degree={}
         for page_id in page_score:
-            if month=='0' or (month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2 and page_score[page_id]['category'] in CATEGORY):
+            if (month=='0' or (month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2)) and page_score[page_id]['category'] in CATEGORY:
                 if month=='0' or(not threshold_is_on) or (threshold_is_on and page_score[page_id]['score'][month][len(page_score[page_id]['score'][month])-3][0]>THRESHOLD[month]): 
                     g.add_node(page_id)
                     degree[page_id]=0
@@ -320,7 +326,7 @@ def generate_data_of_top(page_score,threshold_is_on = False):
         # eigenvector = nx.eigenvector_centrality(g)
 
         for page_id in page_score:
-            if month=='0' or (month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2 and page_score[page_id]['category'] in CATEGORY):
+            if (month=='0' or (month in page_score[page_id] and  len(page_score[page_id]['score'][month])>2)) and page_score[page_id]['category'] in CATEGORY:
                 if month=='0' or(not threshold_is_on) or (threshold_is_on and page_score[page_id]['score'][month][len(page_score[page_id]['score'][month])-3][0]>THRESHOLD[month]):
                     catetory_id = page_score[page_id]['category']
                     if catetory_id==2 or catetory_id==4 or catetory_id==5:
@@ -337,6 +343,10 @@ def generate_data_of_top(page_score,threshold_is_on = False):
                         score_range[month]['degree']['max'] = degree[page_id]
                     if degree[page_id]<score_range[month]['degree']['min']:
                         score_range[month]['degree']['min'] = degree[page_id]
+                    if page_score[page_id]['fan_count']>score_range[month]['fan_count']['max']:
+                        score_range[month]['fan_count']['max'] = page_score[page_id]['fan_count']
+                    if page_score[page_id]['fan_count']<score_range[month]['fan_count']['min']:
+                        score_range[month]['fan_count']['min'] = page_score[page_id]['fan_count']
                     node_list.append(node)
                     if page_id not in page_info_data:
                         page_info_data[page_id]={ 'group':catetory_id,'name':page_score[page_id]['name']}
@@ -350,7 +360,8 @@ def generate_data_of_top(page_score,threshold_is_on = False):
                             'degree':degree[page_id],
                             'brand':page_score[page_id][month]['brand'],
                             'media':page_score[page_id][month]['media'],
-                            'artist':page_score[page_id][month]['artist']
+                            'artist':page_score[page_id][month]['artist'],
+                            'fan_count':page_score[page_id]['fan_count']
                         }
                     else:
                         page_info_data[page_id][month]={
@@ -362,7 +373,8 @@ def generate_data_of_top(page_score,threshold_is_on = False):
                             'degree':degree[page_id],
                             'brand':[],
                             'media':[],
-                            'artist':[]
+                            'artist':[],
+                            'fan_count':page_score[page_id]['fan_count']
                         }
 
         if month not in data['nodes']:
@@ -379,7 +391,8 @@ def main_generate_network_of_top():
     page_dict=mongo.get_all_from_collection('page_dict_monthly')[0]
     del page_dict['_id']
     page_score_list = mongo.get_all_from_collection('page_score_monthly')
-    page_score = extract_top_from_each_category(page_score_list)
+    page_like_list=mongo.get_all_from_collection('page_like')
+    page_score = extract_top_from_each_category(page_score_list,page_like_list)
     data = generate_data_of_top(page_score)
     file_name = './view/datatop5_monthly cat'+str(CATEGORY).replace('\'','').replace('[','').replace(']','').replace(', ','')+'.json'
     write_json(file_name,data)
@@ -388,11 +401,12 @@ def main_generate_network_of_above_threshold():
     page_dict=mongo.get_all_from_collection('page_dict_monthly')[0]
     del page_dict['_id']
     page_score_list = mongo.get_all_from_collection('page_score_monthly')
-    page_score = extract_above_threshold_percent_from_each_category(page_score_list)
+    page_like_list=mongo.get_all_from_collection('page_like')[0]
+    page_score = extract_above_threshold_percent_from_each_category(page_score_list,page_like_list)
     data = generate_data_of_top(page_score, threshold_is_on=True)
     file_name = './view/data_'+str(THRESHOLD_STRING)+' cat'+str(CATEGORY).replace('\'','').replace('[','').replace(']','').replace(', ','')+'.json'
     write_json(file_name,data)
 if __name__=="__main__":
     print('begin')
-    main_generate_network_of_above_threshold()
+    main_generate_network_of_top()
     print('done')
