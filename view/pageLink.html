@@ -47,7 +47,7 @@ div.tooltip {
         <label class="radio-inline"></label>
         <input type="radio" name="nodeEncoding" id="radioBetweenness" value="betweenness">Betweenness</label>
         <label class="radio-inline"></label>
-        <input type="radio" name="nodeEncoding" id="radioFanCount" value="fan_count">fan count</label>
+        <input type="radio" name="nodeEncoding" id="radioFanCount" value="fan_count">Fan count</label>
     </form>
     <form id="radioColorEncoding">
         <br> Color encoding
@@ -72,6 +72,7 @@ div.tooltip {
 </div>
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script>
+    var MIN_RADIUS = 5;
     var MAX_RADIUS = 20;
     var RADIUS = 6.5;
     var OPTION_BAR_PADDING=10
@@ -116,7 +117,7 @@ div.tooltip {
                     if (nodeSizeEncoding == "none") {
                         return RADIUS;
                     }
-                    return RADIUS +  nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
+                    return nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
                 }
                 else{
                     return 0;
@@ -128,7 +129,7 @@ div.tooltip {
                     if (nodeSizeEncoding == "none") {
                         return RADIUS;
                     }
-                    return RADIUS +  nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
+                    return nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
                 }
                 else{
                     return 0;
@@ -179,7 +180,7 @@ div.tooltip {
                     if (nodeSizeEncoding == "none") {
                         return RADIUS;
                     }
-                    return RADIUS +  nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
+                    return nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding]);
                 }
                 else{
                     return 0;
@@ -218,7 +219,7 @@ div.tooltip {
                     if (nodeSizeEncoding == "none") {
                         return RADIUS;
                     }
-                    return RADIUS +  nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
+                    return nodeSizeScale[selectMonth][nodeSizeEncoding](pageInfo[d["id"]][selectMonth][nodeSizeEncoding])+0.5;
                 }
                 else{
                     return 0;
@@ -320,13 +321,7 @@ div.tooltip {
     function reloadOption(){
          //generate option for nodeSelector
         $('#nodeSelector').empty();
-        console.log(selectMonth)
-        console.log(nodeSizeEncoding)
-        console.log(colorEncoding)
-        console.log(optionInfo)
-        console.log(optionInfo[selectMonth][nodeSizeEncoding][colorEncoding])
         for(var clusterID in optionInfo[selectMonth][nodeSizeEncoding][colorEncoding]){
-            console.log(clusterID)
             for (var i=0;i<optionInfo[selectMonth][nodeSizeEncoding][colorEncoding][clusterID].length;i++){
                 nodeInfo=optionInfo[selectMonth][nodeSizeEncoding][colorEncoding][clusterID][i];
                 //nodeInfo=['score','id','name']
@@ -385,7 +380,6 @@ div.tooltip {
                 var id = nodeList[month][j]['id'];
                 for(var k=0;k< nodeSizeEncodingList.length;k++){    
                     for(var m=0; m < colorEncodingList.length;m++){
-                        //console.log( pageInfo[id]);
                         var clusterId = pageInfo[id][month][colorEncodingList[m]];
                         if(!(clusterId in optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]])){
                             optionInfo[month][nodeSizeEncodingList[k]][colorEncodingList[m]][clusterId]=[];
@@ -428,7 +422,7 @@ div.tooltip {
                 if(max==0){
                     max=1;
                 }
-                nodeSizeScale[month][sizeEncoding] = d3.scaleLinear().domain([min,max]).range([0,MAX_RADIUS]);
+                nodeSizeScale[month][sizeEncoding] = d3.scaleLinear().domain([min,max]).range([MIN_RADIUS,MAX_RADIUS]);
                 nodeBarScale[month][sizeEncoding] = d3.scaleLinear().domain([min,max]).range([0,OPTION_BAR_MAX_LENGTH-OPTION_BAR_PADDING]);
             }
         }

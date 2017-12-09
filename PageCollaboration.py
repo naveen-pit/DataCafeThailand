@@ -6,10 +6,12 @@ from datetime import datetime
 import networkx as nx
 client = bigquery.Client()
 import community
-THRESHOLD_STRING='percentile95'
-#THRESHOLD={'0':0.019591264,'1':1,'2':1,'3':1,'4':0.009253993,'5':0.0139308,'6':0.015639112,'7':0.016478019,'8':0.014431916} #percentile90
-THRESHOLD={'0':0.042686806,'1':1,'2':1,'3':1,'4':0.016973777,'5':0.036735772,'6':0.039468444,'7':0.037965443,'8':0.037860194} #percentile95
-CATEGORY=[3]
+THRESHOLD_STRING='percentile90'
+#THRESHOLD={'0':0.019591264,'1':1,'2':1,'3':1,'4':0.009253993,'5':0.0139308,'6':0.015639112,'7':0.016478019,'8':0.014431916} #jaccard percentile90
+#THRESHOLD={'0':0.042686806,'1':1,'2':1,'3':1,'4':0.016973777,'5':0.036735772,'6':0.039468444,'7':0.037965443,'8':0.037860194} #jaccard percentile95
+THRESHOLD={'0':0.00965377,'1':1,'2':1,'3':1,'4':0.0068668,'5':0.00954324,'6':0.0104485,'7':0.01074988,'8':0.01017128} #extended_jaccard percentile90
+#THRESHOLD={'0':0.021664789,'1':1,'2':1,'3':1,'4':0.01266922,'5':0.022804,'6':0.024310971,'7':0.023123143,'8':0.023078997} #extended_jaccard percentile95
+CATEGORY=[1,2,3,4,5]
 def query(query_string,use_legacy=True):
     query_job = client.run_async_query(str(uuid.uuid4()), query_string)
     query_job.use_legacy_sql = use_legacy
@@ -29,6 +31,8 @@ def get_page_dict():
         page_id = row[0]
         page_url = row[1]
         category = row[2]
+        if category==4 or category==5:
+            category=2
         name = row[3]
         page_dict[page_id]={'page_id':page_id,'page_url':page_url,'category':category,'score':{},'name':name}
     return page_dict
@@ -59,8 +63,8 @@ def generate_page_score_tuple(page_score):
         page_score_tuple = (page_score[page_id]['count'],page_score[page_id]['page_url'],page_score[page_id]['category'])
         page_score_tuple_list.append(page_score_tuple)
     return page_score_tuple_list
-def get_intersection_union(page_id_string):
-    query_string = """ select host1,host2, nintersect,nunion,postmonth from [datacafethailand:a19.all_page_pairwise_monthly] where host1 in """+page_id_string+""" and host2 in """ +page_id_string
+def get_monthly_intersection_union(page_id_string,table_name):
+    query_string = """ select host1,host2, nintersect,nunion,postmonth from [datacafethailand:a19."""+table_name+"""] where host1 in """+page_id_string+""" and host2 in """ +page_id_string
     data = query(query_string)
     all_page_pairwise_list=[]
     for row in data:
@@ -72,10 +76,47 @@ def get_intersection_union(page_id_string):
         pairwise={'pageid1':page_id1,'pageid2':page_id2,'intersect':intersect,'union':union,'month':month}
         all_page_pairwise_list.append(pairwise)
     return all_page_pairwise_list
+def get_extended_monthly_intersection_union(page_id_string,table_name):
+    query_string = """ select host1,host2, sum_intersect1,sum_intersect2,sum_min,sum_max,sum1,sum2,postmonth from [datacafethailand:a19."""+table_name+"""] where host1 in """+page_id_string+""" and host2 in """ +page_id_string
+    data = query(query_string)
+    all_page_pairwise_list=[]
+    for row in data:
+        page_id1 = row[0]
+        page_id2 = row[1]
+        intersect = row[4]
+        union = row[6]+row[7]-row[2]-row[3]+row[5]
+        month = row[8]
+        pairwise={'pageid1':page_id1,'pageid2':page_id2,'intersect':intersect,'union':union,'month':month}
+        all_page_pairwise_list.append(pairwise)
+    return all_page_pairwise_list
+def get_intersection_union(page_id_string,table_name):
+    query_string = """ select host1,host2, nintersect,nunion from [datacafethailand:a19."""+table_name+"""] where host1 in """+page_id_string+""" and host2 in """ +page_id_string
+    data = query(query_string)
+    all_page_pairwise_list=[]
+    for row in data:
+        page_id1 = row[0]
+        page_id2 = row[1]
+        intersect = row[2]
+        union = row[3]
+        pairwise={'pageid1':page_id1,'pageid2':page_id2,'intersect':intersect,'union':union,}
+        all_page_pairwise_list.append(pairwise)
+    return all_page_pairwise_list
+def get_extended_intersection_union(page_id_string,table_name):
+    query_string = """ select host1,host2,sum_intersect1,sum_intersect2,sum_min,sum_max,sum1,sum2 from [datacafethailand:a19."""+table_name+"""] where host1 in """+page_id_string+""" and host2 in """ +page_id_string
+    data = query(query_string)
+    all_page_pairwise_list=[]
+    for row in data:
+        page_id1 = row[0]
+        page_id2 = row[1]
+        intersect = row[4]
+        union = row[6]+row[7]-row[2]-row[3]+row[5]
+        pairwise={'pageid1':page_id1,'pageid2':page_id2,'intersect':intersect,'union':union,}
+        all_page_pairwise_list.append(pairwise)
+    return all_page_pairwise_list
 def main_run_jaccard_single_call():
-    mongo = MongoDBManager('PageCollab')
+    mongo = MongoDBManager('PageCollab_extended')
     get_page_dict_from_big_query=False
-    get_page_pairwise_from_big_query = False
+    get_page_pairwise_from_big_query = True
     if get_page_dict_from_big_query: 
         page_dict = get_page_dict()
         mongo.insert_one('page_dict_monthly',page_dict)
@@ -83,8 +124,12 @@ def main_run_jaccard_single_call():
         page_dict=mongo.get_all_from_collection('page_dict_monthly')[0]
     if get_page_pairwise_from_big_query:
         page_id_string = generate_page_id_string(page_dict)
-        all_page_pairwise_monthly_list = get_intersection_union(page_id_string)
-        mongo.insert_many('all_page_pairwise_monthly',all_page_pairwise_list)
+        #all_page_pairwise_monthly_list = get_monthly_intersection_union(page_id_string,'extended_monthly_pairwise')
+        all_page_pairwise_monthly_list = get_extended_monthly_intersection_union(page_id_string,'extended_monthly_pairwise')
+        mongo.insert_many('all_page_pairwise_monthly',all_page_pairwise_monthly_list)
+        #all_page_pairwise_list = get_intersection_union(page_id_string,'extended_all_pairwise')
+        all_page_pairwise_list = get_extended_intersection_union(page_id_string,'extended_all_pairwise')
+        mongo.insert_many('all_page_pairwise',all_page_pairwise_list)
     else:
         all_page_pairwise_monthly_list=mongo.get_all_from_collection('all_page_pairwise_monthly')
         all_page_pairwise_list=mongo.get_all_from_collection('all_page_pairwise')
@@ -233,7 +278,8 @@ def extract_top_from_each_category(page_score_list,page_like_list):
                         num_page_in_list = num_page_in_list+1
     for page in page_like_list:
         page_id = page['page_id']
-        page_score[page_id]['fan_count']=page['fan_count']
+        if page_id in page_score:
+            page_score[page_id]['fan_count']=page['fan_count']
     return page_score 
 def extract_above_threshold_percent_from_each_category(page_score_list,page_like_list):
     page_score={}
@@ -261,10 +307,11 @@ def extract_above_threshold_percent_from_each_category(page_score_list,page_like
                     page_score[page_id][month]['artist'].append(page_tuple)
     for page in page_like_list:
         page_id = page['page_id']
-        page_score[page_id]['fan_count']=page['fan_count']
+        if page_id in page_score:
+            page_score[page_id]['fan_count']=page['fan_count']
     return page_score 
 
-def generate_data_of_top(page_score,threshold_is_on = False):
+def generate_data_of_top(page_score,threshold_is_on = False,remove_internal_link=False):
     month_list = ['0','1','2','3','4','5','6','7','8']
     category_list = ['brand','media','artist']
     category_data=[]
@@ -294,13 +341,20 @@ def generate_data_of_top(page_score,threshold_is_on = False):
                         pageid2 = page_tuple[1]
                         tuple_category = page_tuple[3]
                         if (pageid1 not in node_exist) or (pageid2 not in node_exist[pageid1]):
-                            link={
-                                'source':pageid1,
-                                'target':pageid2,
-                                'value':score
-                            }
-                            if len(page_score[pageid1]['score'][month])>2 and page_score[pageid1]['category'] in CATEGORY and page_score[pageid2]['category'] in CATEGORY:
-                                edge_list.append(link)
+                            cat_page1 = page_score[pageid1]['category']
+                            cat_page2 = page_score[pageid2]['category']
+                            if cat_page1==4 or cat_page1==5:
+                                cat_page1=2 
+                            if cat_page2==4 or cat_page2==5:
+                                cat_page2=2 
+                            if not remove_internal_link or cat_page1 != cat_page2:
+                                link={
+                                    'source':pageid1,
+                                    'target':pageid2,
+                                    'value':score
+                                }
+                                if len(page_score[pageid1]['score'][month])>2 and page_score[pageid1]['category'] in CATEGORY and page_score[pageid2]['category'] in CATEGORY:
+                                    edge_list.append(link)
                             if (pageid1 not in node_exist):
                                 node_exist[pageid1]={}
                             if (pageid2 not in node_exist):
@@ -387,26 +441,29 @@ def generate_data_of_top(page_score,threshold_is_on = False):
     return data
 def main_generate_network_of_top():
     threshold_is_on=False
-    mongo = MongoDBManager('PageCollab')
+    mongo = MongoDBManager('PageCollab_extended')
+    mongo_old = MongoDBManager('PageCollab')
     page_dict=mongo.get_all_from_collection('page_dict_monthly')[0]
     del page_dict['_id']
     page_score_list = mongo.get_all_from_collection('page_score_monthly')
-    page_like_list=mongo.get_all_from_collection('page_like')
+    page_like_list=mongo_old.get_all_from_collection('page_like')
     page_score = extract_top_from_each_category(page_score_list,page_like_list)
+    remove_internal_link = len(CATEGORY)>1
     data = generate_data_of_top(page_score)
     file_name = './view/datatop5_monthly cat'+str(CATEGORY).replace('\'','').replace('[','').replace(']','').replace(', ','')+'.json'
     write_json(file_name,data)
 def main_generate_network_of_above_threshold():
-    mongo = MongoDBManager('PageCollab')
+    mongo = MongoDBManager('PageCollab_extended')
+    mongo_old = MongoDBManager('PageCollab')
     page_dict=mongo.get_all_from_collection('page_dict_monthly')[0]
     del page_dict['_id']
     page_score_list = mongo.get_all_from_collection('page_score_monthly')
-    page_like_list=mongo.get_all_from_collection('page_like')[0]
+    page_like_list=mongo_old.get_all_from_collection('page_like')
     page_score = extract_above_threshold_percent_from_each_category(page_score_list,page_like_list)
     data = generate_data_of_top(page_score, threshold_is_on=True)
     file_name = './view/data_'+str(THRESHOLD_STRING)+' cat'+str(CATEGORY).replace('\'','').replace('[','').replace(']','').replace(', ','')+'.json'
     write_json(file_name,data)
 if __name__=="__main__":
     print('begin')
-    main_generate_network_of_top()
+    main_generate_network_of_above_threshold()
     print('done')
