@@ -9,7 +9,7 @@ div.tooltip {
     position: absolute;			
     text-align: center;							
     padding: 2px;				
-    font: 12px sans-serif;		
+    font: 16px sans-serif;		
     background: lightgray;	
     border: 0px;		
     border-radius: 8px;			
@@ -32,9 +32,13 @@ div.tooltip {
     <h1>PageLink</h1>
     <select id="dataset" class="selectpicker">
         <option disabled selected value> -- select dataset -- </option>
+
         <option value="datatop5_monthly cat1.json">top5 brands</option>
-        <option value="datatop5_monthly cat13.json">top5 brands-artists</option>
+        <option value="datatop5_monthly cat245.json">top5 media</option>
         <option value="datatop5_monthly cat3.json">top5 artists</option>
+        <option value="datatop5_monthly cat13.json">top5 brands-artists</option>
+        <option value="datatop5_monthly cat23.json">top5 media-artists</option>
+        <option value="datatop5_monthly cat12345.json">top5 all categories</option>
         <option value="data_percentile90 cat12345.json">all threshold at percentile90</option>
         <option value="data_percentile95 cat12345.json">all threshold at percentile95</option>
     </select>
@@ -43,11 +47,12 @@ div.tooltip {
         <label class="radio-inline"></label>
         <input type="radio" name="nodeEncoding" id="radioNone" value="none" checked="checked">None</label>
         <label class="radio-inline"></label>
+        <input type="radio" name="nodeEncoding" id="radioFanCount" value="fan_count">Fan count</label>
+        <label class="radio-inline"></label>
         <input type="radio" name="nodeEncoding" id="radioDegree" value="degree">Degree</label>
         <label class="radio-inline"></label>
         <input type="radio" name="nodeEncoding" id="radioBetweenness" value="betweenness">Betweenness</label>
-        <label class="radio-inline"></label>
-        <input type="radio" name="nodeEncoding" id="radioFanCount" value="fan_count">Fan count</label>
+
     </form>
     <form id="radioColorEncoding">
         <br> Color encoding
@@ -144,8 +149,8 @@ div.tooltip {
     $('#dataset')
         .on("change", function () {
             var dataset = document.getElementById("dataset")
-            //var filePath = "https://pnaveen.com/datacafe/"+dataset.options[dataset.selectedIndex].value;
-            var filePath = dataset.options[dataset.selectedIndex].value;
+            var filePath = "https://pnaveen.com/datacafe/"+dataset.options[dataset.selectedIndex].value;
+            //var filePath = dataset.options[dataset.selectedIndex].value;
             document.getElementById("radioNone").checked = true;
             document.getElementById("radioCategory").checked = true;
             colorEncoding = "group";
@@ -195,7 +200,7 @@ div.tooltip {
                             text= pageInfo[d["id"]].name;
                         }
                         else{
-                            text= pageInfo[d["id"]].name + ' ' + nodeSizeEncoding + '=' + pageInfo[d["id"]][selectMonth][nodeSizeEncoding].toFixed(6);
+                            text= pageInfo[d["id"]].name + ' ' + nodeSizeEncoding + '=' + Number(pageInfo[d["id"]][selectMonth][nodeSizeEncoding].toFixed(6)).toLocaleString();
                         }
                     }else{
                         text= pageInfo[d["id"]].name;

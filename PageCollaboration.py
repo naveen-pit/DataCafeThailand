@@ -11,7 +11,7 @@ THRESHOLD_STRING='percentile90'
 #THRESHOLD={'0':0.042686806,'1':1,'2':1,'3':1,'4':0.016973777,'5':0.036735772,'6':0.039468444,'7':0.037965443,'8':0.037860194} #jaccard percentile95
 THRESHOLD={'0':0.00965377,'1':1,'2':1,'3':1,'4':0.0068668,'5':0.00954324,'6':0.0104485,'7':0.01074988,'8':0.01017128} #extended_jaccard percentile90
 #THRESHOLD={'0':0.021664789,'1':1,'2':1,'3':1,'4':0.01266922,'5':0.022804,'6':0.024310971,'7':0.023123143,'8':0.023078997} #extended_jaccard percentile95
-CATEGORY=[1,2,3,4,5]
+CATEGORY=[1]
 def query(query_string,use_legacy=True):
     query_job = client.run_async_query(str(uuid.uuid4()), query_string)
     query_job.use_legacy_sql = use_legacy
@@ -465,5 +465,5 @@ def main_generate_network_of_above_threshold():
     write_json(file_name,data)
 if __name__=="__main__":
     print('begin')
-    main_generate_network_of_above_threshold()
+    main_generate_network_of_top()
     print('done')
